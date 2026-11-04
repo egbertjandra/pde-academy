@@ -124,7 +124,7 @@ textarea{min-height:110px}
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
 </head><body><div id="app"></div><script>window.PDE_PDF=true</script>
 <script>window.PDE = {
-version: "2.0",
+version: "2.1",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -2326,7 +2326,7 @@ const app = $("#app");
 
 /* ---------- state ---------- */
 let mem = null;
-function blank(){return {quiz:{},lessons:{},wrong:{},flash:{},days:[],exam:"",mocks:[],flags:{},read:{}};}
+function blank(){return {quiz:{},lessons:{},wrong:{},flash:{},days:[],exam:"",mocks:[],flags:{},read:{},plan:null,manual:{},qdone:{},fdays:{}};}
 function load(){
   try{const s=localStorage.getItem(KEY); if(s){const o=JSON.parse(s); return Object.assign(blank(),o);} }catch(e){}
   return mem || blank();
@@ -2387,10 +2387,13 @@ function vHome(){
       <div class="stat"><b>${days===null?"—":(days<0?"Done":days)}</b><small class="muted">${days===null?"Set exam date":"days to exam"}</small></div>
       <div class="stat"><b>${streak()}🔥</b><small class="muted">day streak</small></div>
     </div>
-    ${days===null?`<button class="btn ghost block" style="margin-top:10px;background:rgba(255,255,255,.14);color:#fff" onclick="PDEapp.setExam()">Set my exam date</button>`:""}
+    ${days===null?`<button class="btn ghost block" style="margin-top:10px;background:rgba(255,255,255,.14);color:#fff" onclick="PDEapp.planAsk()">Set my exam date</button>`:""}
     <a href="#progress" class="btn ghost block" style="margin-top:8px;background:rgba(255,255,255,.08);color:#fff">My progress &amp; backup ›</a>
   </div>
-  ${nextL?`<div class="sec">Continue</div>
+  ${planCard()}
+  ${!S.plan?`<a class="tile" href="#plan" onclick="event.preventDefault();PDEapp.planAsk()"><div class="ic" style="background:#4f46e5">📅</div><div class="tx"><b>Buat jadwal belajar</b><small class="muted">Day-by-day sampai mock exam H-1</small></div><span class="chev">›</span></a>`:""}
+  <a class="tile" href="#random" onclick="PDEapp.rl()"><div class="ic" style="background:#7c3aed">🎲</div><div class="tx"><b>Random lesson</b><small class="muted">Biar aku yang pilihkan topik hari ini</small></div><span class="chev">›</span></a>
+  ${nextL&&!S.plan?`<div class="sec">Continue</div>
   <a class="tile" href="#lesson-${nextL.id}"><div class="ic" style="background:${dom(nextL.d).color}">${dom(nextL.d).n}</div><div class="tx"><b>${nextL.title}</b><small class="muted">${dom(nextL.d).short} · ${nextL.mins} min lesson</small></div><span class="chev">›</span></a>`:""}
   <div class="sec">Quick practice</div>
   <a class="tile" href="#daily"><div class="ic" style="background:#4f46e5">10</div><div class="tx"><b>Daily 10</b><small class="muted">Mixed questions from unlocked domains</small></div><span class="chev">›</span></a>
@@ -2401,7 +2404,7 @@ function vHome(){
   `,"home");
 }
 function nextLesson(){
-  for(const d of D.domains){ if(!d.ready)continue; for(const l of d.lessons){ if(!S.lessons[l.id]) return Object.assign({d:d.id},l);} }
+  for(const id of D.order){ const d=dom(id); if(!d.ready)continue; for(const l of d.lessons){ if(!S.lessons[l.id]) return Object.assign({d:d.id},l);} }
   return null;
 }
 function vLearn(){
@@ -2459,7 +2462,7 @@ function vLesson(id){
 let Q=null;
 function startQuiz(list,title,back){
   if(!list.length){toast("Nothing to practise here yet");return;}
-  Q={list:shuffle(list).map(q=>q.id),i:0,sel:[],done:false,score:0,title,back,wrong:[]};
+  Q={list:shuffle(list).map(q=>q.id),i:0,sel:[],done:false,score:0,title,back,wrong:[],dom:(back||"").startsWith("d-")&&title.endsWith(" quiz")?back.slice(2):null};
   vQuiz();
 }
 function vQuiz(){
@@ -2482,6 +2485,7 @@ function vQuiz(){
 }
 function same(a,b){return a.length===b.length&&a.every(x=>b.includes(x));}
 function vQuizEnd(){
+  if(Q.dom&&!S.qdone[Q.dom]){S.qdone[Q.dom]=today();save();}
   const pct=Math.round(Q.score/Q.list.length*100);
   render(`${top(Q.title,Q.back)}
   <div class="card" style="text-align:center"><div style="font-size:52px;font-weight:800">${pct}%</div><p>${Q.score} of ${Q.list.length} correct</p><p class="muted">${pct>=80?"Exam-ready pace for this set. Keep it up.":pct>=60?"Close. Review the mistakes and run it again tomorrow.":"Re-read the lessons, then try again. That's how it sticks."}</p></div>
@@ -2738,6 +2742,144 @@ function vGS(g,i){
   </div>`,"read");
 }
 
+
+/* ---------- study plan & welcome ---------- */
+const DORDER=["d3","d2","d1","d4","d5"];
+function dstr(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function dplus(s,n){const d=new Date(s+"T00:00");d.setDate(d.getDate()+n);return dstr(d);}
+function ddiff(a,b){return Math.round((new Date(b+"T00:00")-new Date(a+"T00:00"))/864e5);}
+function fmtDate(s){return new Date(s+"T00:00").toLocaleDateString("id-ID",{weekday:"short",day:"numeric",month:"short"});}
+function buildPlan(exam){
+  const start=today(); const avail=ddiff(start,exam); if(avail<1) return null;
+  const reserve = avail>=6?3:(avail>=3?2:1);
+  const L=Math.max(avail-reserve,0);
+  const units=[{t:"read",g:"d0",m:10}];
+  DORDER.forEach(d=>{const dm=dom(d);
+    units.push({t:"read",g:d,m:Math.round(D.guides[d].sections.length*3.5)});
+    dm.lessons.forEach(l=>units.push({t:"lesson",id:l.id,d,m:l.mins}));
+    units.push({t:"quiz",d,m:Math.round(quizPool(d).length*1.2)});
+    units.push({t:"mini",id:"mini-"+d,d,m:15});});
+  const days=[];
+  if(L>0){const total=units.reduce((a,u)=>a+u.m,0), per=total/L; let acc=0, di=0;
+    for(let i=0;i<L;i++) days.push({date:dplus(start,i),items:[]});
+    units.forEach(u=>{ if(acc>=per*(di+1)-u.m/2 && di<L-1) di++; days[di].items.push(u); acc+=u.m; });
+  }
+  const fin=[];
+  if(reserve>=3){fin.push([{t:"full",id:"full-1",m:120},{t:"weak",m:30}]);fin.push([{t:"full",id:"full-2",m:120},{t:"mistakes",m:20}]);fin.push([{t:"full",id:"full-3",m:120},{t:"pdf",m:15}]);}
+  else if(reserve===2){fin.push([{t:"full",id:"full-1",m:120},{t:"weak",m:30}]);fin.push([{t:"full",id:"full-2",m:120},{t:"pdf",m:15}]);}
+  else fin.push([{t:"full",id:"full-1",m:120},{t:"pdf",m:15}]);
+  fin.forEach((items,k)=>days.push({date:dplus(start,L+k),items,final:true}));
+  days.forEach(d=>d.items.push({t:"flash",m:10}));
+  return {exam,start,days};
+}
+function ikey(it,date){return [it.t,it.id||it.g||it.d||"",it.t==="flash"||it.t==="mistakes"||it.t==="weak"||it.t==="pdf"?date:""].join(":");}
+function idone(it,date){
+  if(S.manual&&S.manual[ikey(it,date)]) return true;
+  if(it.t==="lesson") return !!S.lessons[it.id];
+  if(it.t==="read"){const G=D.guides[it.g];return G.sections.every((_,i)=>S.read[it.g+"-"+i]);}
+  if(it.t==="quiz") return !!(S.qdone&&S.qdone[it.d]);
+  if(it.t==="mini"||it.t==="full") return S.mocks.some(m=>m.id===it.id);
+  if(it.t==="flash") return !!(S.fdays&&S.fdays[date]);
+  return false;
+}
+function ilabel(it){
+  const dm=it.d?dom(it.d):null;
+  switch(it.t){
+    case "read": return {h:it.g==="d0"?"#gs-d0-0":"#guide-"+it.g,t:it.g==="d0"?"Baca: Cara berpikir saat ujian":"Baca ringkasan: "+D.guides[it.g].title,s:"Read · ~"+it.m+" menit",c:D.guides[it.g].color,i:"❏"};
+    case "lesson": {const l=dm.lessons.find(x=>x.id===it.id);return {h:"#lesson-"+it.id,t:l.title,s:dm.short+" · pelajaran "+l.mins+" menit",c:dm.color,i:dm.n};}
+    case "quiz": return {h:"#quiz-"+it.d,t:"Kuis: "+dm.short,s:quizPool(it.d).length+" soal · selesaikan satu sesi",c:"#4f46e5",i:"Q"};
+    case "mini": return {h:"#mockintro-"+it.id,t:"Mini mock: "+dm.short,s:"10 soal · 15 menit",c:"#171a26",i:"M"};
+    case "full": {const m=D.mocks.find(x=>x.id===it.id);return {h:"#mockintro-"+it.id,t:m.title,s:"50 soal · 2 jam · seperti ujian asli",c:"#171a26",i:"★"};}
+    case "weak": return {h:"#progress",t:"Review domain yang masih lemah",s:"Lihat hasil mock → baca ulang bab-nya di Read",c:"#d97706",i:"↺"};
+    case "mistakes": return {h:"#notebook",t:"Ulangi Mistakes notebook",s:"Sampai semua soal salah keluar",c:"#dc2626",i:"✕"};
+    case "pdf": return {h:"#read",t:"Baca cheat sheet (PDF hal. 38)",s:"Lalu istirahat. Tidur cukup!",c:"#0f766e",i:"✓"};
+    case "flash": return {h:"#flash",t:"Flashcards hari ini",s:"Kartu yang jatuh tempo",c:"#0f766e",i:"FC"};
+  }
+}
+function planToday(){
+  const P=S.plan; if(!P) return null; const t=today();
+  const idx=P.days.findIndex(d=>d.date===t);
+  const behind=[]; P.days.forEach(d=>{if(d.date<t) d.items.forEach(it=>{if(it.t!=="flash"&&!idone(it,d.date)) behind.push({it,date:d.date});});});
+  return {idx,day:idx>=0?P.days[idx]:null,behind,examIn:ddiff(t,P.exam)};
+}
+function itemTile(it,date){const L=ilabel(it),dn=idone(it,date);
+  return `<div class="tile" style="padding:10px 12px"><button aria-label="tandai" onclick="PDEapp.tick('${ikey(it,date)}')" style="border:none;background:${dn?"var(--good)":"var(--soft)"};color:#fff;width:30px;height:30px;border-radius:9px;font-weight:800;cursor:pointer;flex:none">${dn?"✓":""}</button>
+  <a href="${L.h}" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-decoration:none;color:inherit"><div class="ic" style="background:${L.c};width:34px;height:34px;font-size:12px">${L.i}</div><div class="tx"><b style="${dn?"text-decoration:line-through;opacity:.6":""}">${L.t}</b><small class="muted">${L.s}</small></div><span class="chev">›</span></a></div>`;}
+function planCard(){
+  const T=planToday(); if(!T) return "";
+  if(T.examIn===0) return `<div class="card" style="background:var(--good);color:#fff;border:none;text-align:center"><div style="font-size:34px">🎯</div><h2>Hari ini ujian!</h2><p style="margin:0">Baca pertanyaan terakhir dulu, lingkari kata kuncinya, dan pakai 6 aturan emas. Kamu sudah siap.</p></div>`;
+  if(T.examIn<0) return `<div class="card"><b>Ujian sudah lewat.</b><p class="muted" style="margin-bottom:6px">Semoga lancar! Mau bikin jadwal baru?</p><button class="btn ghost block" onclick="PDEapp.planAsk()">Atur ulang jadwal</button></div>`;
+  const d=T.day; const n=S.plan.days.length;
+  const done=d?d.items.filter(it=>idone(it,d.date)).length:0;
+  return `<div class="sec">Misi hari ini</div>
+  <div class="card" style="padding:14px"><div class="row"><b style="flex:1">${d?`Hari ${T.idx+1} dari ${n}`:"Di luar jadwal"} ${d&&d.final?"· Fase mock exam":""}</b><span class="pill">H-${T.examIn}</span></div>
+  ${d?`<div class="bar"><i style="width:${done/d.items.length*100}%;background:var(--good)"></i></div><small class="muted">${done}/${d.items.length} selesai</small>`:""}</div>
+  ${d?d.items.map(it=>itemTile(it,d.date)).join(""):""}
+  ${T.behind.length?`<details class="card" style="padding:12px"><summary><b style="color:var(--bad)">${T.behind.length} tugas tertunda</b> <span class="muted">dari hari sebelumnya</span></summary>${T.behind.slice(0,12).map(b=>itemTile(b.it,b.date)).join("")}</details>`:""}
+  <a class="btn ghost block" href="#plan">Lihat jadwal lengkap</a>`;
+}
+function vPlan(){
+  const P=S.plan; if(!P) {PDEapp.planAsk();return go("home");}
+  const t=today();
+  render(`${top("Jadwal belajar","home")}
+  <div class="card hero"><small class="muted">Ujian</small><h2 style="margin:2px 0">${fmtDate(P.exam)}</h2><small class="muted">${S.plan.days.length} hari belajar · mock exam di hari-hari terakhir</small></div>
+  ${P.days.map((d,i)=>{const dn=d.items.filter(it=>idone(it,d.date)).length;const cur=d.date===t;
+    return `<details class="card" ${cur?"open":""} style="${cur?"border:2px solid var(--accent)":""}"><summary><b>Hari ${i+1} · ${fmtDate(d.date)}</b> ${d.final?`<span class="pill">Mock</span>`:""} <span class="muted" style="float:right">${dn}/${d.items.length}</span></summary>${d.items.map(it=>itemTile(it,d.date)).join("")}</details>`}).join("")}
+  <div class="card" style="text-align:center"><b>${fmtDate(P.exam)} · Hari ujian 🎯</b></div>
+  <button class="btn ghost block" onclick="PDEapp.planAsk()">Ganti tanggal ujian / buat ulang jadwal</button>
+  <button class="btn ghost block" style="margin-top:8px;color:var(--bad)" onclick="PDEapp.planClear()">Hapus jadwal</button>`,"home");
+}
+/* random lesson of the day */
+let RL=null;
+function pickRandomLesson(){
+  const all=[];D.domains.forEach(d=>{if(d.ready)d.lessons.forEach(l=>all.push({d,l}));});
+  const fresh=all.filter(x=>!S.lessons[x.l.id]); const pool=fresh.length?fresh:all;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+const HOOKS=["Satu konsep, 5 menit, satu poin lebih dekat ke sertifikat.","Topik ini sering banget muncul di soal skenario.","Kalau kamu paham ini, ada satu jebakan ujian yang bisa kamu lewati.","Pas buat satu-dua stasiun KRL.","Kecil, tapi sering jadi penentu jawaban."];
+function vRandom(){
+  if(!RL) RL=pickRandomLesson();
+  const {d,l}=RL;
+  render(`${top("Random lesson","home")}
+  <div class="card" style="background:${d.color};color:#fff;border:none;padding:22px">
+   <div style="font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.85">🎲 Hari ini kita belajar</div>
+   <h1 style="font-size:28px;margin:8px 0 6px">${l.title}</h1>
+   <p style="margin:0;opacity:.92">${d.short} · ${l.mins} menit · ${HOOKS[Math.floor(Math.random()*HOOKS.length)]}</p></div>
+  <div class="card"><div class="pill">Tantangan pembuka</div><p style="margin:10px 0 0;font-size:16px">${l.opener.q}</p><p class="muted" style="font-size:14px">Bisa jawab? Jawabannya ada di dalam pelajaran 👀</p></div>
+  <div class="box brain"><div class="l">Yang bakal kamu kuasai</div><ul style="margin:0">${l.keys.map(k=>`<li>${k}</li>`).join("")}</ul></div>
+  <a class="btn block" href="#lesson-${l.id}">Mulai belajar ›</a>
+  <button class="btn ghost block" style="margin-top:8px" onclick="PDEapp.reroll()">🎲 Acak topik lain</button>`,"home");
+}
+/* welcome sheet */
+function welcome(){
+  try{if(sessionStorage.getItem(KEY+"-welcomed"))return;sessionStorage.setItem(KEY+"-welcomed","1");}catch(e){}
+  const T=planToday();
+  if(S.plan&&T&&T.examIn>0){
+    const d=T.day; const left=d?d.items.filter(it=>!idone(it,d.date)):[];
+    const first=left[0]?ilabel(left[0]):null;
+    const m=sheet(`<div style="font-size:30px">👋</div><h2>Selamat datang lagi!</h2>
+     <p>${d?`<b>Hari ${T.idx+1}</b> dari jadwalmu · ujian <b>H-${T.examIn}</b>.`:`Ujian <b>H-${T.examIn}</b>.`} ${left.length?`Masih ada <b>${left.length} misi</b> hari ini${T.behind.length?` dan ${T.behind.length} tugas tertunda`:""}.`:"Misi hari ini sudah selesai semua 🎉"}</p>
+     ${first?`<div class="card" style="margin:8px 0;padding:12px"><small class="muted">Berikutnya</small><br><b>${first.t}</b><br><small class="muted">${first.s}</small></div>`:""}
+     <div class="row"><button class="btn ghost" style="flex:1" id="a">Lihat app</button>${first?`<button class="btn" style="flex:2" id="b">Mulai misi ›</button>`:`<button class="btn" style="flex:2" id="c">🎲 Random lesson</button>`}</div>`);
+    m.querySelector("#a").onclick=()=>m.remove();
+    const b=m.querySelector("#b"); if(b) b.onclick=()=>{m.remove();location.hash=first.h.slice(1);};
+    const c=m.querySelector("#c"); if(c) c.onclick=()=>{m.remove();RL=null;location.hash="random";};
+    return;
+  }
+  askExam();
+}
+function askExam(){
+  const m=sheet(`<div style="font-size:30px">📅</div><h2>Halo! Kamu ujian PDE dalam 2 minggu ke depan?</h2>
+   <p class="muted">Kalau iya, aku buatkan jadwal belajar harian sampai mock exam di H-1.</p>
+   <div class="row"><button class="btn ghost" style="flex:1" id="n">Belum / tidak</button><button class="btn" style="flex:1" id="y">Iya</button></div>`);
+  m.querySelector("#y").onclick=()=>{m.remove();PDEapp.planAsk();};
+  m.querySelector("#n").onclick=()=>{m.remove();
+    const k=sheet(`<div style="font-size:30px">😎</div><h2>Oke, santai dulu!</h2><p>Mau aku pilihkan <b>random lesson</b> untuk hari ini, atau kamu mau lihat-lihat aplikasinya dulu?</p>
+     <div class="row"><button class="btn ghost" style="flex:1" id="v">Lihat aplikasi</button><button class="btn" style="flex:1" id="r">🎲 Random lesson</button></div>`);
+    k.querySelector("#v").onclick=()=>k.remove();
+    k.querySelector("#r").onclick=()=>{k.remove();RL=null;location.hash="random";};};
+}
+
 /* ---------- router ---------- */
 function go(h){location.hash=h;}
 function route(){
@@ -2745,6 +2887,8 @@ function route(){
   if(M&&!M.submitted&&!h.startsWith("mock")){ /* keep mock alive */ }
   if(h==="home")return vHome();
   if(h==="read")return vRead();
+  if(h==="plan")return vPlan();
+  if(h==="random")return vRandom();
   if(h.startsWith("guide-"))return vGuide(h.slice(6));
   if(h.startsWith("gs-")){const p=h.split("-");return vGS(p[1],+p[2]);}
   if(h==="learn")return vLearn();
@@ -2769,6 +2913,14 @@ window.PDEapp={
   setExam(){const m=sheet(`<h3>When is your exam?</h3><input type="date" id="ed" value="${S.exam}"><div class="row" style="margin-top:12px"><button class="btn ghost" style="flex:1" id="c">Cancel</button><button class="btn" style="flex:1" id="s">Save</button></div>`);
     m.querySelector("#c").onclick=()=>m.remove(); m.querySelector("#s").onclick=()=>{S.exam=m.querySelector("#ed").value;save();m.remove();route();};},
   exam(v){S.exam=v;save();toast("Exam date saved");},
+  planAsk(){const def=S.exam&&S.exam>today()?S.exam:dplus(today(),14);
+    const m=sheet(`<h2>Kapan ujianmu?</h2><p class="muted">Aku bagi semua materi per hari, lalu 2–3 hari terakhir untuk full mock exam (yang terakhir di H-1).</p><input type="date" id="ed" value="${def}" min="${dplus(today(),1)}"><div class="row" style="margin-top:12px"><button class="btn ghost" style="flex:1" id="c">Batal</button><button class="btn" style="flex:2" id="s">Buat jadwal</button></div>`);
+    m.querySelector("#c").onclick=()=>m.remove();
+    m.querySelector("#s").onclick=()=>{const v=m.querySelector("#ed").value;const P=buildPlan(v);if(!P){toast("Pilih tanggal setelah hari ini");return;}S.exam=v;S.plan=P;save();m.remove();toast("Jadwal dibuat: "+P.days.length+" hari");location.hash="home";route();};},
+  planClear(){S.plan=null;save();toast("Jadwal dihapus");go("home");},
+  tick(k){S.manual[k]=!S.manual[k];save();route();},
+  rl(){RL=null;},
+  reroll(){RL=pickRandomLesson();vRandom();},
   open(i){LS.opened=i;vLesson(LS.id);},
   lstep(n){LS.step+=n;vLesson(LS.id);},
   ldone(id,d){S.lessons[id]=true;touch();toast("Lesson complete ✓");LS=null;go("d-"+d);},
@@ -2778,7 +2930,7 @@ window.PDEapp={
   retryWrong(){startQuiz(Q.wrong.map(qById),Q.title+" · retry",Q.back);},
   retryAll(){startQuiz(Object.keys(S.wrong).map(qById).filter(Boolean),"Mistakes retry","notebook");},
   flip(){F.flip=!F.flip;vFlash();},
-  fc(ok){const id=F.list[F.i];const r=S.flash[id]||{box:0};r.box=ok?Math.min(r.box+1,INT.length-1):0;r.due=addDays(ok?INT[r.box]:1);S.flash[id]=r;if(ok)F.good++;touch();F.i++;F.flip=false;vFlash();},
+  fc(ok){const id=F.list[F.i];const r=S.flash[id]||{box:0};r.box=ok?Math.min(r.box+1,INT.length-1):0;r.due=addDays(ok?INT[r.box]:1);S.flash[id]=r;S.fdays[today()]=true;if(ok)F.good++;touch();F.i++;F.flip=false;vFlash();},
   flashAll(){F={list:shuffle(D.flash.filter(c=>dom(c.d).ready)).map(c=>c.id),i:0,flip:false,good:0};vFlash();},
   pk(i){const tool=D.tools[PK.t];const n=tool.nodes[PK.node];PK.path.push(n.q+" → "+n.opts[i][0]);PK.node=n.opts[i][1];vPicker(tool);},
   pkReset(){const t=PK.t;PK={t,node:"start",path:[]};vPicker(D.tools[t]);},
@@ -2804,6 +2956,7 @@ function showCode(code){const m=sheet(`<h3>Your backup code</h3><p class="muted"
 /* resume an unfinished mock after reload */
 try{const s=sessionStorage.getItem(KEY+"-mock"); if(s){const o=JSON.parse(s); if(o&&!o.submitted&&o.end>Date.now()){M=o;}}}catch(e){}
 route();
+setTimeout(welcome,350);
 })();
 </script>
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>
