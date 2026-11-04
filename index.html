@@ -137,7 +137,7 @@ table.duel td.dl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transf
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
 </head><body><div id="app"></div><script>window.PDE_PDF=true</script>
 <script>window.PDE = {
-version: "2.5",
+version: "2.6",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -4912,7 +4912,7 @@ function vQuiz(){
   const correct = Q.done && same(Q.sel,q.ans);
   render(`${top(Q.title,Q.back)}
   ${Q.caseId?`<button class="btn ghost block" style="margin-bottom:10px;position:sticky;top:6px;z-index:5;box-shadow:var(--shadow)" onclick="PDEapp.caseSheet('${Q.caseId}')">📄 ${T("Case","Kasus")}: ${bl(caseById(Q.caseId).title)}</button>`:""}
-  <div class="qmeta"><span>${T("Question","Soal")} ${Q.i+1} ${T("of","dari")} ${Q.list.length}</span><span class="pill" style="background:${d.color};color:#fff">${q.topic}</span></div>
+  <div class="qmeta"><span>${T("Question","Soal")} ${Q.i+1} ${T("of","dari")} ${Q.list.length}</span><span class="pill" style="background:${d.color};color:#fff">${Q.done?q.topic:dShort(d)}</span></div>
   <div class="bar" style="margin-bottom:14px"><i style="width:${Q.i/Q.list.length*100}%"></i></div>
   <div class="qstem">${q.q}</div>${multi?`<p class="muted" style="margin-top:-6px"><b>Choose ${q.ans.length}.</b></p>`:""}
   ${!Q.done?strikeHint():""}
@@ -4967,7 +4967,7 @@ function vDaily(){const pool=D.questions.filter(q=>!q.mock&&!q.case&&dom(q.d).re
 function vNotebook(){
   const ids=Object.keys(S.wrong).sort((a,b)=>S.wrong[b]-S.wrong[a]).filter(qById);
   render(`<h1>Mistakes notebook</h1><p class="muted">${T("Every question you miss lands here. Get it right twice in a row and it leaves the notebook.","Setiap soal yang salah masuk ke sini. Jawab benar 2x berturut-turut, maka soalnya keluar dari catatan.")}</p>
-  ${ids.length?`<button class="btn block" onclick="PDEapp.retryAll()">${T("Retry all","Ulangi semua")} ${ids.length}</button>`+ids.map(id=>{const q=qById(id);return `<div class="card"><div class="row" style="margin-bottom:6px"><span class="pill" style="background:${dom(q.d).color};color:#fff">${q.topic}</span></div><div>${q.q}</div><details style="margin-top:8px"><summary class="muted">${T("Show answer","Lihat jawaban")}</summary><p><b>${q.ans.map(i=>L[i]+". "+q.opts[i].t).join(" · ")}</b></p><p class="muted">${q.ans.map(i=>optW(q,i)).join(" ")}</p></details></div>`}).join("")
+  ${ids.length?`<button class="btn block" onclick="PDEapp.retryAll()">${T("Retry all","Ulangi semua")} ${ids.length}</button>`+ids.map(id=>{const q=qById(id);return `<div class="card"><div class="row" style="margin-bottom:6px"><span class="pill" style="background:${dom(q.d).color};color:#fff">${dShort(dom(q.d))}</span></div><div>${q.q}</div><details style="margin-top:8px"><summary class="muted">${T("Show answer","Lihat jawaban")}</summary><p><b>${q.ans.map(i=>L[i]+". "+q.opts[i].t).join(" · ")}</b></p><p class="muted">${q.ans.map(i=>optW(q,i)).join(" ")}</p></details></div>`}).join("")
   :`<div class="card" style="text-align:center"><div style="font-size:40px">🎯</div><p>${T("No mistakes saved yet. Go break something in a quiz.","Belum ada soal yang salah. Yuk coba kuis dulu.")}</p></div>`}`,"notebook");
 }
 
