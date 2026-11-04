@@ -137,7 +137,7 @@ table.duel td.dl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transf
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
 </head><body><div id="app"></div><script>window.PDE_PDF=true</script>
 <script>window.PDE = {
-version: "2.4",
+version: "2.5",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -4511,6 +4511,194 @@ PDE.duels = [
 ];
 })();
 
+(function(){
+PDE.i18n = PDE.i18n || {lessons:{},q:{},flash:{},tools:{},dom:{}};
+const B=(en,id)=>({en,id});
+/* case question: stems/options English (like the real exam); per-option why in EN + ID */
+function CQ(id,d,cs,topic,q,opts,ans,tipEn,tipId){
+  PDE.questions.push({id,d,case:cs,mock:false,topic,q,opts:opts.map(o=>({t:o[0],w:o[1]})),ans:Array.isArray(ans)?ans:[ans],tip:tipEn});
+  PDE.i18n.q[id]={w:opts.map(o=>o[2]),tip:tipId};
+}
+PDE.cases = [
+{id:"jalancepat",color:"#0891b2",
+ title:B("JalanCepat: ride-hailing & logistics","JalanCepat: ride-hailing & logistik"),
+ tag:B("Streaming · IoT · migration","Streaming · IoT · migrasi"),
+ overview:B("JalanCepat is a Jakarta-based ride-hailing and parcel delivery company with 30 million riders and 2 million drivers in Indonesia and Vietnam. Every driver's phone sends a GPS ping every 5 seconds. The company is moving from its own data center to Google Cloud.",
+  "JalanCepat adalah perusahaan ride-hailing dan pengiriman paket asal Jakarta dengan 30 juta penumpang dan 2 juta driver di Indonesia dan Vietnam. HP setiap driver mengirim ping GPS setiap 5 detik. Perusahaan ini sedang pindah dari data center sendiri ke Google Cloud."),
+ business:B(["Show riders accurate ETAs and set surge pricing in real time.","Reduce the size of the infrastructure operations team.","Indonesian regulators require that customer data for Indonesia stays in Indonesia.","Analysts want self-service SQL instead of waiting for engineers.","Stop paying for Hadoop servers that sit idle most of the day."],
+  ["Menampilkan ETA yang akurat dan menentukan surge pricing secara real-time.","Mengecilkan tim operasional infrastruktur.","Regulator Indonesia mewajibkan data pelanggan Indonesia tetap berada di Indonesia.","Analis ingin SQL self-service, tidak perlu menunggu engineer.","Berhenti membayar server Hadoop yang menganggur hampir sepanjang hari."]),
+ technical:B(["Ingest ~400,000 GPS events per second at peak.","Look up a driver's latest location in under 10 ms.","Compute demand per city area every minute; events can arrive up to 10 minutes late due to poor signal.","Phase 1: hundreds of existing Kafka producer services must keep working with minimal code changes.","Existing nightly Spark jobs must keep running during the migration."],
+  ["Ingest ~400.000 event GPS per detik saat puncak.","Lookup lokasi terakhir driver dalam waktu di bawah 10 ms.","Hitung permintaan per area kota setiap menit; event bisa telat sampai 10 menit karena sinyal buruk.","Fase 1: ratusan service producer Kafka yang sudah ada harus tetap jalan dengan perubahan kode minimal.","Spark job malam yang sudah ada harus tetap jalan selama migrasi."]),
+ current:B(["Self-managed Kafka cluster (12 brokers).","Cassandra for driver locations.","Hadoop + Spark cluster (60 nodes) for nightly reports.","MySQL for orders and payments."],
+  ["Cluster Kafka yang dikelola sendiri (12 broker).","Cassandra untuk lokasi driver.","Cluster Hadoop + Spark (60 node) untuk laporan malam.","MySQL untuk order dan pembayaran."]),
+ qs:["cjc1","cjc2","cjc3","cjc4","cjc5"]},
+{id:"tokoserba",color:"#16a34a",
+ title:B("Toko Serba: retail warehouse migration","Toko Serba: migrasi warehouse retail"),
+ tag:B("Migration · BigQuery design · cost","Migrasi · desain BigQuery · biaya"),
+ overview:B("Toko Serba runs 900 supermarkets across Java and Sumatra. Its data center lease ends in 9 months, and leadership wants everything on Google Cloud by then.",
+  "Toko Serba mengelola 900 supermarket di Jawa dan Sumatra. Kontrak sewa data center-nya berakhir dalam 9 bulan, dan manajemen ingin semuanya sudah di Google Cloud sebelum itu."),
+ business:B(["Finish the migration before the lease ends.","Store managers must see dashboards for their own store only.","Head office wants predictable monthly analytics spending.","Morning sales dashboards must be fast for 2,000 users."],
+  ["Migrasi selesai sebelum sewa berakhir.","Manajer toko hanya boleh melihat dashboard tokonya sendiri.","Kantor pusat ingin biaya analitik bulanan yang bisa diprediksi.","Dashboard penjualan pagi harus cepat untuk 2.000 user."]),
+ technical:B(["Migrate a 300 TB Teradata warehouse, including schemas and 5 years of history.","Move a 1.2 PB HDFS archive of clickstream logs. The site has a 1 Gbps link shared with store traffic, and the archive must be in the cloud within 3 months.","Most queries filter sales by sale_date and store_id.","Nightly ETL must not slow down the morning dashboards."],
+  ["Migrasi warehouse Teradata 300 TB, termasuk schema dan riwayat 5 tahun.","Memindahkan arsip HDFS clickstream 1,2 PB. Link-nya 1 Gbps dan dipakai bersama traffic toko, dan arsip harus sudah di cloud dalam 3 bulan.","Sebagian besar query memfilter penjualan berdasarkan sale_date dan store_id.","ETL malam tidak boleh memperlambat dashboard pagi."]),
+ current:B(["Teradata (300 TB).","Hadoop/Hive cluster with a 1.2 PB HDFS archive.","A BI tool with one report copy per store, maintained by hand."],
+  ["Teradata (300 TB).","Cluster Hadoop/Hive dengan arsip HDFS 1,2 PB.","Tool BI dengan satu salinan laporan per toko, dirawat manual."]),
+ qs:["cts1","cts2","cts3","cts4","cts5"]},
+{id:"danaku",color:"#4f46e5",
+ title:B("DanaKu: fintech under strict compliance","DanaKu: fintech dengan regulasi ketat"),
+ tag:B("Security · PII · ML","Keamanan · PII · ML"),
+ overview:B("DanaKu is a digital lending app with 8 million borrowers. It stores national ID numbers (NIK), phone numbers, salaries and repayment history. Financial regulators audit the company every year.",
+  "DanaKu adalah aplikasi pinjaman digital dengan 8 juta peminjam. Aplikasi ini menyimpan NIK, nomor HP, gaji dan riwayat pembayaran. Regulator keuangan mengaudit perusahaan ini setiap tahun."),
+ business:B(["Pass the annual regulatory audit.","Let analysts build credit-risk models quickly.","Protect customer data even if an employee's account is compromised."],
+  ["Lulus audit regulator tahunan.","Analis bisa membuat model risiko kredit dengan cepat.","Data pelanggan tetap terlindungi walaupun akun karyawan dibobol."]),
+ technical:B(["Analysts must join loan and payment tables on NIK without ever seeing real NIK values; the compliance team must be able to recover real values during investigations.","The company must control encryption keys for BigQuery and Cloud Storage and be able to revoke access instantly.","Data must not be copied out of the analytics projects, even with valid credentials.","Show auditors, every month, who queried the salaries table, with logs kept for 5 years.","About 2% of loans default."],
+  ["Analis harus bisa join tabel pinjaman dan pembayaran berdasarkan NIK tanpa pernah melihat NIK asli; tim compliance harus bisa mengembalikan nilai asli saat investigasi.","Perusahaan harus mengontrol kunci enkripsi untuk BigQuery dan Cloud Storage dan bisa mencabut akses seketika.","Data tidak boleh di-copy keluar dari project analitik, walaupun dengan kredensial yang valid.","Setiap bulan, tunjukkan ke auditor siapa saja yang meng-query tabel gaji, dengan log disimpan 5 tahun.","Sekitar 2% pinjaman gagal bayar."]),
+ current:B(["New on Google Cloud: BigQuery + Cloud Storage, data loaded by Dataflow.","Analysts know SQL well and some Python."],
+  ["Baru pakai Google Cloud: BigQuery + Cloud Storage, data dimuat oleh Dataflow.","Analis sangat paham SQL dan sedikit Python."]),
+ qs:["cdk1","cdk2","cdk3","cdk4","cdk5"]},
+{id:"streamnusa",color:"#db2777",
+ title:B("StreamNusa: video streaming & smart TVs","StreamNusa: video streaming & smart TV"),
+ tag:B("Streaming · sharing · ML · ops","Streaming · berbagi data · ML · ops"),
+ overview:B("StreamNusa is a video streaming service on 5 million smart TVs and phones. Devices send playback heartbeats every 10 seconds, and some buffer events while offline. Advertising is a major revenue source.",
+  "StreamNusa adalah layanan video streaming di 5 juta smart TV dan HP. Perangkat mengirim heartbeat pemutaran setiap 10 detik, dan sebagian menyimpan event saat offline. Iklan adalah sumber pendapatan utama."),
+ business:B(["Understand viewing sessions per user.","Give 25 advertisers daily access to their ad-impression data.","Recommend shows (\"viewers who watched X also watched Y\").","Keep the real-time pipeline healthy at evening peaks."],
+  ["Memahami sesi menonton per user.","Memberi 25 pengiklan akses harian ke data ad-impression mereka.","Merekomendasikan tontonan (\"yang menonton X juga menonton Y\").","Menjaga pipeline real-time tetap sehat saat puncak malam."]),
+ technical:B(["A viewing session ends after 30 minutes without heartbeats; offline devices can send events up to 1 hour late.","All raw events must also be stored in BigQuery exactly as received, with minimal operations.","Advertisers must always see fresh data, pay for their own queries, and no copies should be made.","Recommendation models should be built by SQL analysts.","A Dataflow job enriches each event by calling an internal metadata API."],
+  ["Sesi menonton berakhir setelah 30 menit tanpa heartbeat; perangkat offline bisa mengirim event sampai 1 jam terlambat.","Semua event mentah juga harus disimpan di BigQuery persis seperti diterima, dengan operasional minimal.","Pengiklan harus selalu melihat data terbaru, membayar query-nya sendiri, dan tidak boleh ada salinan data.","Model rekomendasi dibuat oleh analis SQL.","Sebuah job Dataflow memperkaya setiap event dengan memanggil API metadata internal."]),
+ current:B(["Pub/Sub → Dataflow → BigQuery pipeline already exists.","Analysts work in BigQuery and Looker Studio."],
+  ["Pipeline Pub/Sub → Dataflow → BigQuery sudah ada.","Analis bekerja di BigQuery dan Looker Studio."]),
+ qs:["csn1","csn2","csn3","csn4","csn5"]}
+];
+
+/* ---- JalanCepat ---- */
+CQ("cjc1","d2","jalancepat","Ingestion","For phase 1, JalanCepat needs to move GPS ingestion to Google Cloud while its hundreds of existing Kafka producers keep working with minimal code changes, and the operations team wants to stop managing brokers. What should you use?",[
+ ["Pub/Sub, after rewriting the producers to use the Pub/Sub client","Least ops long term, but rewriting hundreds of producers violates \"minimal code changes\" for phase 1.","Ops paling kecil dalam jangka panjang, tapi menulis ulang ratusan producer melanggar syarat \"perubahan kode minimal\" di fase 1."],
+ ["Google Cloud Managed Service for Apache Kafka","Correct. Kafka API compatibility with no brokers to manage.","Benar. Kompatibel dengan Kafka API dan tidak perlu mengurus broker."],
+ ["Kafka on Compute Engine VMs","Keeps the Kafka API but the team still manages brokers, against the business requirement.","Kafka API tetap, tapi tim masih mengurus broker, bertentangan dengan kebutuhan bisnis."],
+ ["Upload GPS files to Cloud Storage every minute","Breaks the real-time requirement and changes every producer.","Melanggar kebutuhan real-time dan mengubah setiap producer."]],1,
+ "Read the phase: \"minimal code changes\" now → Managed Kafka; Pub/Sub can come later.","Perhatikan fasenya: \"perubahan kode minimal\" sekarang → Managed Kafka; Pub/Sub bisa menyusul nanti.");
+CQ("cjc2","d3","jalancepat","Bigtable","The app must look up a driver's latest location in under 10 ms while absorbing ~400,000 location writes per second. Which design fits best?",[
+ ["BigQuery table partitioned by day","Analytical latency is seconds, not milliseconds.","Latency analitik itu detik, bukan milidetik."],
+ ["Cloud SQL with read replicas","A single primary can't take 400k writes per second.","Satu primary tidak sanggup menerima 400 ribu write per detik."],
+ ["Bigtable with row key driver_id#reverse_timestamp","Correct. Writes spread across drivers, and the newest reading for a driver is the first row of its prefix.","Benar. Write tersebar ke banyak driver, dan data terbaru seorang driver ada di baris pertama prefix-nya."],
+ ["Bigtable with row key timestamp#driver_id","All current writes hit the same key range, causing a hotspot.","Semua write terbaru jatuh di range key yang sama, jadi terjadi hotspot."]],2,
+ "Massive writes + <10 ms key lookups → Bigtable; entity first, reverse timestamp for latest.","Write masif + lookup per key <10 ms → Bigtable; entitas di depan, reverse timestamp untuk data terbaru.");
+CQ("cjc3","d2","jalancepat","Windowing","JalanCepat needs demand per city area for every minute. Events can arrive up to 10 minutes late, and late events must still be counted. How should the Dataflow pipeline be configured?",[
+ ["Fixed 1-minute windows on processing time","Late events would be counted in the wrong minute.","Event yang telat akan dihitung di menit yang salah."],
+ ["Fixed 1-minute windows on event time, with allowed lateness of 10 minutes","Correct. Event-time windows place each event in the right minute, and allowed lateness keeps late events.","Benar. Window berbasis event time menaruh setiap event di menit yang tepat, dan allowed lateness menjaga event yang telat."],
+ ["Session windows with a 1-minute gap","Session windows group activity per key until a gap. They aren't fixed per-minute buckets.","Session window mengelompokkan aktivitas per key sampai ada jeda. Itu bukan ember per menit."],
+ ["A BigQuery scheduled query every minute","Not a streaming solution, and scheduled queries can't run every minute reliably at this scale.","Bukan solusi streaming, dan scheduled query tidak bisa diandalkan berjalan tiap menit di skala ini."]],1,
+ "\"Every N minutes\" + late data → fixed event-time windows + allowed lateness.","\"Setiap N menit\" + data telat → fixed window berbasis event time + allowed lateness.");
+CQ("cjc4","d1","jalancepat","Residency","Regulators require that Indonesian customer data stays in Indonesia. How do you guarantee this across all current and future projects?",[
+ ["Ask teams to choose the Jakarta region","Not enforced, and someone will eventually pick another region.","Tidak dipaksakan, dan suatu saat ada yang memilih region lain."],
+ ["Create resources in asia-southeast2 (Jakarta) and enforce the resource locations organization policy","Correct. An org-level guardrail prevents creating resources outside allowed locations.","Benar. Guardrail di level organisasi mencegah pembuatan resource di luar lokasi yang diizinkan."],
+ ["Enable VPC Service Controls","Controls data exfiltration, not where resources are created.","Mengontrol exfiltration data, bukan lokasi pembuatan resource."],
+ ["Encrypt everything with CMEK","Encryption doesn't control location.","Enkripsi tidak mengontrol lokasi."]],1,
+ "Residency → region choice + resource locations org policy.","Residency → pilih region + org policy resource locations.");
+CQ("cjc5","d2","jalancepat","Dataproc","The existing nightly Spark jobs must keep running during migration, and the company wants to stop paying for idle Hadoop capacity. What should you do?",[
+ ["Run a persistent 60-node Dataproc cluster 24/7","Recreates the idle-capacity problem in the cloud.","Masalah kapasitas menganggur hanya pindah ke cloud."],
+ ["Rewrite all Spark jobs in Apache Beam before migrating","Slow and risky, and the requirement says the jobs must keep running during migration.","Lambat dan berisiko, padahal syaratnya job harus tetap jalan selama migrasi."],
+ ["Run the jobs on ephemeral Dataproc clusters with data in Cloud Storage and Spot secondary workers","Correct. Same Spark code, clusters exist only while jobs run, and storage is separate from compute.","Benar. Kode Spark sama, cluster hanya ada saat job jalan, dan storage terpisah dari compute."],
+ ["Install Hadoop on Compute Engine VMs","Self-managed, which goes against reducing the operations team.","Dikelola sendiri, bertentangan dengan tujuan mengecilkan tim operasional."]],2,
+ "Existing Spark + cost → ephemeral Dataproc + GCS + Spot secondaries.","Spark yang sudah ada + biaya → Dataproc ephemeral + GCS + Spot secondary.");
+
+/* ---- Toko Serba ---- */
+CQ("cts1","d1","tokoserba","Migration","Which service should Toko Serba use to migrate the Teradata warehouse, including schemas and historical data, into BigQuery?",[
+ ["Storage Transfer Service","Copies files, not warehouse schemas and SQL.","Meng-copy file, bukan schema dan SQL warehouse."],
+ ["BigQuery Data Transfer Service / BigQuery Migration Service for Teradata","Correct. Purpose-built for Teradata → BigQuery migrations.","Benar. Dibuat khusus untuk migrasi Teradata → BigQuery."],
+ ["Database Migration Service","Targets Cloud SQL / AlloyDB, not BigQuery.","Tujuannya Cloud SQL / AlloyDB, bukan BigQuery."],
+ ["Datastream","CDC from operational databases. Teradata warehouse migration isn't its job.","CDC dari database operasional. Migrasi warehouse Teradata bukan tugasnya."]],1,
+ "Warehouse → BigQuery = DTS / Migration Service.","Warehouse → BigQuery = DTS / Migration Service.");
+CQ("cts2","d1","tokoserba","Migration","The 1.2 PB HDFS archive must be in Google Cloud within 3 months. The site's 1 Gbps link is shared with store traffic. What should you do?",[
+ ["Use gcloud storage cp in parallel over the link","1.2 PB at well under 1 Gbps takes far longer than 3 months.","1,2 PB dengan kecepatan jauh di bawah 1 Gbps butuh jauh lebih lama dari 3 bulan."],
+ ["Use Storage Transfer Service with on-prem agents","Managed, but still limited by the same shared link.","Managed, tapi tetap dibatasi link yang sama."],
+ ["Use Transfer Appliance","Correct. Even at full speed the link needs ~140 days, so ship the data physically.","Benar. Bahkan dengan kecepatan penuh link butuh ~140 hari, jadi kirim datanya secara fisik."],
+ ["Upgrade to Dedicated Interconnect and copy it","Provisioning and the transfer itself likely won't fit the deadline, and it's costly for a one-time move.","Provisioning dan transfernya kemungkinan tidak sempat sebelum deadline, dan mahal untuk pemindahan satu kali."]],2,
+ "Do the math (1 TB @ 100 Mbps ≈ 1 day). Too slow → Transfer Appliance.","Hitung dulu (1 TB @ 100 Mbps ≈ 1 hari). Terlalu lama → Transfer Appliance.");
+CQ("cts3","d3","tokoserba","BigQuery design","Most sales queries filter on sale_date and store_id. How should the sales fact table be designed in BigQuery?",[
+ ["Partition by sale_date and cluster by store_id","Correct. Date pruning plus block skipping on store_id.","Benar. Partisi tanggal yang tidak relevan dilewati, dan blok berdasarkan store_id juga dilewati."],
+ ["One table per store","900 tables is an anti-pattern and makes cross-store reports painful.","900 tabel adalah anti-pattern dan menyulitkan laporan lintas toko."],
+ ["Partition by store_id only","You lose date pruning, which is the most common filter.","Kehilangan pruning tanggal, padahal itu filter yang paling sering dipakai."],
+ ["No partitioning; add LIMIT to queries","LIMIT doesn't reduce bytes scanned.","LIMIT tidak mengurangi byte yang di-scan."]],0,
+ "Date filter → partition; high-cardinality ID filter → cluster.","Filter tanggal → partition; filter ID dengan banyak nilai → cluster.");
+CQ("cts4","d4","tokoserba","Security","Each of the 900 store managers must see only their own store's rows in shared Looker Studio dashboards, and the team wants to stop maintaining per-store report copies. What should you implement?",[
+ ["One authorized view per store","Works, but 900 views is exactly the maintenance burden they want to remove.","Bisa jalan, tapi 900 view adalah beban perawatan yang justru ingin dihilangkan."],
+ ["Row-level access policies on the sales table, filtered by each manager's store","Correct. One table and one dashboard, with rows filtered per user or group.","Benar. Satu tabel dan satu dashboard, baris difilter per user atau group."],
+ ["Policy tags on the store_id column","Hides a column. It doesn't filter rows.","Menyembunyikan kolom, bukan memfilter baris."],
+ ["Separate datasets per store","Duplication and drift.","Data duplikat dan lama-lama tidak sinkron."]],1,
+ "Different rows per user → row-level access policy.","Baris berbeda per user → row-level access policy.");
+CQ("cts5","d5","tokoserba","Cost & capacity","After the migration, nightly ETL slows the morning dashboards and the on-demand bill varies wildly month to month. What should you do?",[
+ ["Move the ETL to run at noon instead","Doesn't fix unpredictable spend and just moves the contention.","Tidak memperbaiki biaya yang tidak terprediksi dan hanya memindahkan bentrokannya."],
+ ["Adopt BigQuery Editions with separate reservations for ETL and BI (baseline + autoscaling), and assign projects to each","Correct. Predictable capacity spend, and dashboards get guaranteed slots.","Benar. Biaya kapasitas bisa diprediksi dan dashboard mendapat slot yang terjamin."],
+ ["Add LIMIT to all ETL queries","Doesn't reduce slot use meaningfully.","Tidak mengurangi pemakaian slot secara berarti."],
+ ["Buy flat-rate slots","Flat-rate is retired. Editions is the modern equivalent.","Flat-rate sudah pensiun. Editions adalah penggantinya."]],1,
+ "Isolation + predictability → Editions reservations.","Isolasi + biaya terprediksi → reservation Editions.");
+
+/* ---- DanaKu ---- */
+CQ("cdk1","d1","danaku","PII","Analysts must join loan and payment tables on NIK without ever seeing real NIK values, and compliance must be able to recover real values during investigations. What should you do?",[
+ ["Redact NIK with Sensitive Data Protection","Redaction breaks the join and can't be reversed.","Redaction merusak join dan tidak bisa dikembalikan."],
+ ["Hash NIK with SHA-256 in the pipeline","Joinable, but compliance can't recover the real values.","Bisa di-join, tapi compliance tidak bisa mengembalikan nilai aslinya."],
+ ["Tokenize NIK with deterministic encryption (or FPE) via Sensitive Data Protection in the Dataflow pipeline, with the key in Cloud KMS","Correct. The same NIK always gives the same token, so joins work, and authorized key holders can reverse it.","Benar. NIK yang sama selalu jadi token yang sama, jadi join tetap jalan, dan pemegang kunci yang berwenang bisa membaliknya."],
+ ["Restrict the NIK column with policy tags","Analysts couldn't join on it at all, and raw values are still stored.","Analis jadi tidak bisa join sama sekali, dan nilai mentahnya tetap tersimpan."]],2,
+ "Joinable + reversible → deterministic tokenization / FPE.","Bisa di-join + bisa dibalik → deterministic tokenization / FPE.");
+CQ("cdk2","d1","danaku","Encryption","DanaKu must control the encryption keys for its BigQuery datasets and Cloud Storage buckets and be able to revoke access instantly. What should you configure?",[
+ ["Default Google-managed encryption","No customer control over the keys.","Pelanggan tidak punya kontrol atas kunci."],
+ ["CMEK with keys in Cloud KMS","Correct. You control rotation, and disabling the key revokes access.","Benar. Kamu mengontrol rotasi, dan men-disable kunci berarti mencabut akses."],
+ ["CSEK for BigQuery and Cloud Storage","BigQuery doesn't support CSEK.","BigQuery tidak mendukung CSEK."],
+ ["Client-side encryption before loading into BigQuery","BigQuery couldn't query the encrypted values.","BigQuery tidak bisa meng-query nilai yang terenkripsi."]],1,
+ "Control + revoke keys → CMEK.","Kontrol + cabut kunci → CMEK.");
+CQ("cdk3","d1","danaku","Perimeter","Security wants to make sure data in the analytics projects can't be copied to any project outside the company, even if an employee's credentials are stolen. What should you implement?",[
+ ["Stricter IAM roles","IAM can't stop someone who already holds valid credentials.","IAM tidak bisa menahan orang yang sudah memegang kredensial valid."],
+ ["A VPC Service Controls perimeter around the analytics projects","Correct. Blocks data from leaving the perimeter through Google APIs.","Benar. Memblokir data keluar dari perimeter lewat API Google."],
+ ["CMEK on all datasets","An attacker with valid access can still read and copy the data.","Penyerang dengan akses valid tetap bisa membaca dan meng-copy data."],
+ ["Private Google Access","Provides private connectivity. It doesn't prevent exfiltration.","Menyediakan konektivitas privat, bukan mencegah exfiltration."]],1,
+ "Exfiltration with valid credentials → VPC Service Controls.","Exfiltration dengan kredensial valid → VPC Service Controls.");
+CQ("cdk4","d5","danaku","Audit","Auditors want a monthly report of everyone who queried the salaries table, and the logs must be kept for 5 years. What should you set up?",[
+ ["Admin Activity audit logs","Record configuration changes, not data reads.","Mencatat perubahan konfigurasi, bukan pembacaan data."],
+ ["BigQuery Data Access audit logs routed by a log sink to a BigQuery dataset (and/or GCS) with 5-year retention","Correct. Data access is logged by default for BigQuery, and the sink keeps it for analysis and retention.","Benar. Akses data BigQuery tercatat secara default, dan sink menyimpannya untuk analisis dan retensi."],
+ ["INFORMATION_SCHEMA.JOBS only","History is limited (~180 days), so it doesn't meet 5 years.","Riwayatnya terbatas (~180 hari), jadi tidak memenuhi 5 tahun."],
+ ["Ask analysts to log their queries in a spreadsheet","Not reliable.","Tidak bisa diandalkan."]],1,
+ "Who read the data + long retention → Data Access logs + log sink.","Siapa yang membaca data + retensi panjang → Data Access logs + log sink.");
+CQ("cdk5","d4","danaku","ML","Analysts (strong in SQL) need a default-prediction model on BigQuery data quickly. About 2% of loans default. Which approach is best?",[
+ ["Vertex AI custom training with a new TensorFlow model","Possible, but slow for SQL analysts and not needed for tabular data in BigQuery.","Bisa, tapi lambat untuk analis SQL dan tidak perlu untuk data tabular di BigQuery."],
+ ["BigQuery ML (e.g. boosted_tree_classifier) with class weighting, evaluated on precision/recall rather than accuracy","Correct. ML in SQL where the data lives, with an evaluation that suits rare positives.","Benar. ML dengan SQL di tempat datanya berada, dengan evaluasi yang cocok untuk kasus positif yang langka."],
+ ["BigQuery ML linear_reg, optimized for accuracy","It's the wrong problem type (classification, not regression), and accuracy is misleading at 2% positives.","Jenis masalahnya salah (klasifikasi, bukan regresi), dan accuracy menyesatkan kalau positifnya hanya 2%."],
+ ["The Natural Language API","Not a tabular prediction tool.","Bukan tool untuk prediksi data tabular."]],1,
+ "SQL users + BigQuery data → BigQuery ML; imbalanced → precision/recall.","User SQL + data BigQuery → BigQuery ML; data tidak seimbang → precision/recall.");
+
+/* ---- StreamNusa ---- */
+CQ("csn1","d2","streamnusa","Windowing","StreamNusa wants viewing sessions per user, where a session ends after 30 minutes without heartbeats. Offline devices can send events up to 1 hour late. How should the Dataflow pipeline be configured?",[
+ ["Fixed 30-minute windows on processing time","Cuts sessions at arbitrary boundaries and misplaces late events.","Memotong sesi di batas yang sembarangan dan salah menempatkan event yang telat."],
+ ["Session windows with a 30-minute gap keyed by user, on event time, with allowed lateness of 1 hour","Correct. A gap-based window per user, correct even when events arrive late.","Benar. Window berbasis jeda per user, tetap benar walaupun event datang terlambat."],
+ ["Sliding 30-minute windows every minute","Overlapping time ranges, not sessions.","Rentang waktu yang tumpang tindih, bukan sesi."],
+ ["A global window with no trigger","Never emits results on an unbounded stream.","Tidak pernah mengeluarkan hasil di stream yang tidak berujung."]],1,
+ "\"Until idle for X\" → session windows; late data → event time + allowed lateness.","\"Sampai idle selama X\" → session window; data telat → event time + allowed lateness.");
+CQ("csn2","d2","streamnusa","Pub/Sub","All raw events must also land in BigQuery exactly as received, with the least operational overhead. What should you add?",[
+ ["A second Dataflow pipeline that writes raw events","Works, but it's another pipeline to run and pay for.","Bisa, tapi itu pipeline tambahan yang harus dijalankan dan dibayar."],
+ ["A BigQuery subscription on the existing Pub/Sub topic","Correct. Pub/Sub writes messages straight into a table, with no pipeline to manage.","Benar. Pub/Sub menulis pesan langsung ke tabel, tanpa pipeline yang perlu diurus."],
+ ["A Cloud Run service that inserts rows","Custom code to maintain.","Kode custom yang harus dirawat."],
+ ["Hourly exports from Cloud Storage","Extra steps and delay.","Langkah tambahan dan ada jeda."]],1,
+ "No transformation → BigQuery subscription.","Tanpa transformasi → BigQuery subscription.");
+CQ("csn3","d4","streamnusa","Sharing","25 advertisers need daily access to their ad-impression data. They must always see fresh data, pay for their own queries, and no data copies may be made. What should you use?",[
+ ["Daily CSV exports to each advertiser's bucket","Copies, and the data goes stale.","Ada salinan, dan datanya jadi basi."],
+ ["Analytics Hub (BigQuery sharing) listings, with row-level filtering per advertiser where needed","Correct. Linked datasets with no copies, live data, and subscribers pay for compute.","Benar. Linked dataset tanpa salinan, data selalu terbaru, dan subscriber membayar compute-nya."],
+ ["dataViewer on StreamNusa's project for each advertiser","Their queries would bill to StreamNusa's project and expose too much.","Query mereka akan ditagih ke project StreamNusa dan membuka akses terlalu luas."],
+ ["Copy tables into each advertiser's project nightly","Copies and staleness.","Ada salinan dan datanya basi."]],1,
+ "Share live, no copies, consumers pay → Analytics Hub.","Berbagi data live, tanpa salinan, konsumen yang bayar → Analytics Hub.");
+CQ("csn4","d4","streamnusa","BigQuery ML","SQL analysts want \"viewers who watched X also watched Y\" recommendations from the viewing history in BigQuery. Which approach fits?",[
+ ["BigQuery ML matrix_factorization","Correct. Collaborative filtering recommendations in SQL.","Benar. Rekomendasi collaborative filtering dengan SQL."],
+ ["BigQuery ML arima_plus","That's for time-series forecasting.","Itu untuk forecasting time series."],
+ ["Vision API","Not relevant.","Tidak relevan."],
+ ["BigQuery ML kmeans only","Clusters users, but doesn't produce item-to-item recommendations directly.","Mengelompokkan user, tapi tidak langsung menghasilkan rekomendasi antar item."]],0,
+ "Recommendations in BigQuery → matrix_factorization.","Rekomendasi di BigQuery → matrix_factorization.");
+CQ("csn5","d5","streamnusa","Troubleshooting","During evening peaks, the Dataflow job's data freshness degrades steadily while worker CPU stays low. The job calls the internal metadata API once per event. What should you do?",[
+ ["Increase max workers only","CPU is low, so compute isn't the bottleneck.","CPU rendah, jadi compute bukan bottleneck-nya."],
+ ["Batch the API calls (e.g. GroupIntoBatches) and/or cache the metadata or load it as a side input","Correct. Low CPU with growing lag means waiting on I/O, so cut the per-event round-trips.","Benar. CPU rendah tapi lag naik artinya menunggu I/O, jadi kurangi round-trip per event."],
+ ["Switch to session windows","Unrelated to the bottleneck.","Tidak berhubungan dengan bottleneck-nya."],
+ ["Cancel and restart the job","Loses in-flight data and doesn't fix the cause.","Menghilangkan data in-flight dan tidak memperbaiki penyebabnya."]],1,
+ "Lag + low CPU → slow external calls; batch/cache them.","Lag + CPU rendah → pemanggilan eksternal yang lambat; batch atau cache.");
+})();
+
 /* PDE Academy — single-file offline app (bilingual EN/ID). Data in window.PDE. */
 (function(){
 "use strict";
@@ -4551,7 +4739,7 @@ function langToggle(light){
 /* ---------- helpers ---------- */
 const dom = id => D.domains.find(d=>d.id===id);
 const qById = id => D.questions.find(q=>q.id===id);
-const quizPool = d => D.questions.filter(q=>q.d===d && !q.mock);
+const quizPool = d => D.questions.filter(q=>q.d===d && !q.mock && !q.case);
 const mockPool = () => D.questions.filter(q=>q.mock);
 const L = "ABCDEFGH";
 function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -4706,9 +4894,9 @@ document.addEventListener("contextmenu",e=>{if(e.target.closest&&e.target.closes
 
 /* quiz engine (practice mode: instant feedback) */
 let Q=null;
-function startQuiz(list,title,back,domId){
+function startQuiz(list,title,back,domId,caseId){
   if(!list.length){toast(T("Nothing to practise here yet","Belum ada soal di sini"));return;}
-  Q={list:shuffle(list).map(q=>q.id),i:0,sel:[],done:false,score:0,title,back,wrong:[],dom:domId||null,strike:{}};
+  Q={list:(caseId?list:shuffle(list)).map(q=>q.id),i:0,sel:[],done:false,score:0,title,back,wrong:[],dom:domId||null,strike:{},caseId:caseId||null};
   vQuiz();
 }
 function vQuiz(){
@@ -4723,6 +4911,7 @@ function vQuiz(){
     return Q.done?b:`<div class="optrow">${b}<button class="xbtn ${st?"on":""}" aria-label="cross out" onclick="PDEapp.strike('q',${i})">✕</button></div>`;}).join("");
   const correct = Q.done && same(Q.sel,q.ans);
   render(`${top(Q.title,Q.back)}
+  ${Q.caseId?`<button class="btn ghost block" style="margin-bottom:10px;position:sticky;top:6px;z-index:5;box-shadow:var(--shadow)" onclick="PDEapp.caseSheet('${Q.caseId}')">📄 ${T("Case","Kasus")}: ${bl(caseById(Q.caseId).title)}</button>`:""}
   <div class="qmeta"><span>${T("Question","Soal")} ${Q.i+1} ${T("of","dari")} ${Q.list.length}</span><span class="pill" style="background:${d.color};color:#fff">${q.topic}</span></div>
   <div class="bar" style="margin-bottom:14px"><i style="width:${Q.i/Q.list.length*100}%"></i></div>
   <div class="qstem">${q.q}</div>${multi?`<p class="muted" style="margin-top:-6px"><b>Choose ${q.ans.length}.</b></p>`:""}
@@ -4735,6 +4924,7 @@ function vQuiz(){
 function same(a,b){return a.length===b.length&&a.every(x=>b.includes(x));}
 function vQuizEnd(){
   if(Q.dom&&!S.qdone[Q.dom]){S.qdone[Q.dom]=today();save();}
+  if(Q.caseId){S.cases=S.cases||{};const prev=S.cases[Q.caseId];S.cases[Q.caseId]={pct:Math.round(Q.score/Q.list.length*100),date:today(),best:Math.max(prev?prev.best||0:0,Math.round(Q.score/Q.list.length*100))};save();}
   const pct=Math.round(Q.score/Q.list.length*100);
   render(`${top(Q.title,Q.back)}
   <div class="card" style="text-align:center"><div style="font-size:52px;font-weight:800">${pct}%</div><p>${Q.score} ${T("of","dari")} ${Q.list.length} ${T("correct","benar")}</p><p class="muted">${pct>=80?T("Exam-ready pace for this set. Keep it up.","Sudah di level siap ujian untuk set ini. Pertahankan!"):pct>=60?T("Close. Review the mistakes and run it again tomorrow.","Hampir. Review yang salah, lalu ulangi besok."):T("Re-read the lessons, then try again. That's how it sticks.","Baca ulang pelajarannya, lalu coba lagi. Begitu cara materinya nempel.")}</p></div>
@@ -4753,13 +4943,14 @@ function vPractice(){
   <a class="tile" href="#duels"><div class="ic" style="background:#7c3aed;font-size:13px">VS</div><div class="tx"><b>${T("Product duels","Duel produk")}</b><small class="muted">${(D.duels||[]).length} ${T("side-by-side comparisons of look-alike services","perbandingan layanan yang mirip-mirip")}</small></div><span class="chev">›</span></a>
   ${Object.keys(D.tools).map(t=>`<a class="tile" href="#tool-${t}"><div class="ic" style="background:#0f766e">⚙</div><div class="tx"><b>${tl(t).title}</b><small class="muted">${tl(t).sub}</small></div><span class="chev">›</span></a>`).join("")}
   <div class="sec">${T("Exam simulation","Simulasi ujian")}</div>
+  <a class="tile" href="#cases"><div class="ic" style="background:#0f766e">📄</div><div class="tx"><b>${T("Case studies","Studi kasus")}</b><small class="muted">${(D.cases||[]).length} ${T("companies · 5 questions each · read a long scenario first","perusahaan · masing-masing 5 soal · baca skenario panjang dulu")}</small></div><span class="chev">›</span></a>
   ${D.mocks.map(m=>{const ok=mockAvail(m);return `<a class="tile ${ok?"":"locked"}" href="${ok?"#mockintro-"+m.id:"#practice"}"><div class="ic" style="background:#171a26">M</div><div class="tx"><b>${mTitle(m)}</b><small class="muted">${ok?`${m.n} ${T("questions","soal")} · ${m.min} ${T("min","menit")}${mDesc(m)?" · "+mDesc(m):" · "+T("no hints until the end","tanpa petunjuk sampai selesai")}`:m.lockText}</small></div><span class="chev">${ok?"›":"🔒"}</span></a>`}).join("")}
   `,"practice");
 }
 function mockAvail(m){
   if(m.weights) return Object.keys(m.weights).every(d=>dom(d).ready && srcPool(m,d).length>=m.weights[d]);
   return mockPool().filter(q=>!m.domains||m.domains.includes(q.d)).length>=m.n;}
-function srcPool(m,d){return D.questions.filter(q=>q.d===d&&(m.source==="mock"?q.mock:true));}
+function srcPool(m,d){return D.questions.filter(q=>q.d===d&&!q.case&&(m.source==="mock"?q.mock:true));}
 function pickMock(m){
   if(!m.weights){return shuffle(mockPool().filter(q=>!m.domains||m.domains.includes(q.d))).slice(0,m.n);}
   let out=[];
@@ -4770,7 +4961,7 @@ function pickMock(m){
 }
 
 /* daily */
-function vDaily(){const pool=D.questions.filter(q=>!q.mock&&dom(q.d).ready);startQuiz(shuffle(pool).slice(0,10),"Daily 10","home");}
+function vDaily(){const pool=D.questions.filter(q=>!q.mock&&!q.case&&dom(q.d).ready);startQuiz(shuffle(pool).slice(0,10),"Daily 10","home");}
 
 /* notebook */
 function vNotebook(){
@@ -5168,6 +5359,25 @@ function vDuel(id){
   <a class="btn ghost block" href="#duels">${T("All duels","Semua duel")}</a>`,"practice");
 }
 
+
+/* case studies */
+const caseById = id => (D.cases||[]).find(c=>c.id===id);
+function caseBody(c){const li=a=>`<ul>${T(a.en.map(x=>`<li>${x}</li>`).join(""),a.id.map(x=>`<li>${x}</li>`).join(""))}</ul>`;
+  return `<p>${bl(c.overview)}</p><h3>${T("Business requirements","Kebutuhan bisnis")}</h3>${li(c.business)}<h3>${T("Technical requirements","Kebutuhan teknis")}</h3>${li(c.technical)}<h3>${T("Current environment","Kondisi saat ini")}</h3>${li(c.current)}`;}
+function vCases(){
+  render(`${top(T("Case studies","Studi kasus"),"practice")}<p class="muted">${T("A longer company story, then 5 exam-style questions about it. The deciding details are spread across the requirements, just like long exam scenarios.","Satu cerita perusahaan yang lebih panjang, lalu 5 soal gaya ujian tentang cerita itu. Detail penentunya tersebar di daftar kebutuhan, persis seperti skenario panjang di ujian.")}</p>
+  ${(D.cases||[]).map(c=>{const r=(S.cases||{})[c.id];return `<a class="tile" href="#case-${c.id}"><div class="ic" style="background:${c.color}">📄</div><div class="tx"><b>${bl(c.title)}</b><small class="muted">${bl(c.tag)} · 5 ${T("questions","soal")}${r?` · ${T("best","terbaik")} ${r.best}%`:""}</small></div><span class="chev">›</span></a>`}).join("")}`,"practice");
+}
+function vCase(id){
+  const c=caseById(id); if(!c) return go("cases");
+  render(`${top(bl(c.title),"cases")}
+  <div class="card" style="background:${c.color};color:#fff;border:none"><small style="opacity:.9;color:#fff">${T("Case study","Studi kasus")} · ${bl(c.tag)}</small><h2 style="margin:4px 0 0">${bl(c.title)}</h2></div>
+  <div class="box brain"><div class="l">${T("How to read a case","Cara membaca kasus")}</div>${T("Underline the constraints: region, latency, \"minimal changes\", \"least ops\", cost, compliance. Each question usually hinges on one of them.","Garis bawahi batasannya: region, latency, \"minimal changes\", \"least ops\", biaya, kepatuhan. Setiap soal biasanya bergantung pada salah satunya.")}</div>
+  <div class="card">${caseBody(c)}</div>
+  <button class="btn block" onclick="PDEapp.caseStart('${id}')">${T("Start the 5 questions ›","Mulai 5 soal ›")}</button>
+  <p class="muted" style="font-size:13px;text-align:center">${T("You can reopen the case at any time with the 📄 button.","Kamu bisa membuka kasusnya lagi kapan saja lewat tombol 📄.")}</p>`,"practice");
+}
+
 /* ---------- router ---------- */
 function go(h){location.hash=h;}
 function route(){
@@ -5177,6 +5387,8 @@ function route(){
   if(h==="plan")return vPlan();
   if(h==="random")return vRandom();
   if(h==="duels")return vDuels();
+  if(h==="cases")return vCases();
+  if(h.startsWith("case-"))return vCase(h.slice(5));
   if(h.startsWith("duel-")){return vDuel(h.slice(5));}
   if(h.startsWith("guide-"))return vGuide(h.slice(6));
   if(h.startsWith("gs-")){const p=h.split("-");return vGS(p[1],+p[2]);}
@@ -5214,6 +5426,8 @@ window.PDEapp={
     else{const q=qById(M.list[M.i]);M.strike=M.strike||{};let a=M.strike[q.id]||[];a=a.includes(i)?a.filter(x=>x!==i):[...a,i];M.strike[q.id]=a;
       if(a.includes(i)&&M.ans[q.id])M.ans[q.id]=M.ans[q.id].filter(x=>x!==i);try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}vMock();}},
   rl(){RL=null;},
+  caseStart(id){const c=caseById(id);startQuiz(c.qs.map(qById),bl(c.title),"case-"+id,null,id);},
+  caseSheet(id){const c=caseById(id);const m=sheet(`<div style="max-height:72vh;overflow:auto"><h2>${bl(c.title)}</h2>${caseBody(c)}</div><button class="btn block" style="margin-top:10px" id="c">${T("Back to the question","Kembali ke soal")}</button>`);m.querySelector("#c").onclick=()=>m.remove();},
   dq(qi,i){DQ.picks[qi]=i;touch();vDuel(DQ.id);},
   reroll(){RL=pickRandomLesson();vRandom();},
   open(i){LS.opened=i;vLesson(LS.id);},
