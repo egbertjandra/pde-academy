@@ -124,7 +124,7 @@ textarea{min-height:110px}
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
 </head><body><div id="app"></div><script>window.PDE_PDF=true</script>
 <script>window.PDE = {
-version: "1.2",
+version: "2.0",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -142,8 +142,9 @@ questions: [],
 flash: [],
 mocks: [
  {id:"mini-d3",title:"Mini mock · Storing",n:10,min:15,domains:["d3"],lockText:"Needs 10 mock questions"},
- {id:"full-1",title:"Full mock exam #1",n:50,min:120,lockText:"Unlocks when all 5 domains are ready"},
- {id:"full-2",title:"Full mock exam #2",n:50,min:120,lockText:"Unlocks after the full question bank is ready"}
+ {id:"full-1",title:"Full mock exam #1",n:50,min:120,source:"mock",weights:{d1:11,d2:12,d3:10,d4:8,d5:9},lockText:"Unlocks when all 5 domains are ready",desc:"Only mock-reserved questions you've never seen in quizzes"},
+ {id:"full-2",title:"Full mock exam #2 · adaptive",n:50,min:120,source:"adaptive",weights:{d1:11,d2:12,d3:10,d4:8,d5:9},lockText:"Unlocks when all 5 domains are ready",desc:"Picks questions you haven't seen or got wrong first"},
+ {id:"full-3",title:"Full mock exam #3 · random",n:50,min:120,source:"all",weights:{d1:11,d2:12,d3:10,d4:8,d5:9},lockText:"Unlocks when all 5 domains are ready",desc:"Fresh random draw from the whole bank. Repeat it as often as you like"}
 ],
 tools: {
  picker: {title:"Storage Picker",sub:"Answer a few questions, get the right GCP storage service",
@@ -1344,6 +1345,639 @@ PDE.mocks.splice(2,0,{id:"mini-d1",title:"Mini mock · Designing",n:10,min:15,do
 })();
 
 (function(){
+const d4 = PDE.domains.find(d=>d.id==="d4");
+d4.ready = true;
+d4.tools = ["mlpick"];
+d4.lessons = [
+{id:"d4-l1",title:"Fast, cheap dashboards",mins:4,
+ opener:{q:"500 sales managers open the same Looker Studio dashboard on BigQuery every morning and it takes 15 seconds to load. You want sub-second responses with minimal changes. What should you do?",
+  opts:["Export the data to Cloud SQL","Enable BI Engine for the project","Add LIMIT to the dashboard queries","Create one table per manager"],ans:1,
+  why:"BI Engine is BigQuery's in-memory accelerator for BI tools, giving sub-second responses and high concurrency without redesign. LIMIT doesn't help, and the other options add work and duplication."},
+ cards:[
+  {h:"Three speed levers",b:`<table><tr><th>Feature</th><th>Pick when</th></tr><tr><td><mark>BI Engine</mark></td><td>Sub-second dashboards, many concurrent users</td></tr><tr><td><mark>Materialized views</mark></td><td>Same aggregation queried over and over. Auto-refreshed, and queries are <b>auto-rewritten</b> to use them</td></tr><tr><td>Partition + cluster</td><td>Dashboards filter by date and ID</td></tr><tr><td>Summary tables</td><td>Complex logic MVs don't support (scheduled query / Dataform)</td></tr><tr><td>Query cache</td><td>Identical query within 24 h on unchanged data is free</td></tr></table>`},
+  {h:"BI tools",b:`<ul><li><mark>Looker</mark>: enterprise BI with a semantic layer (<b>LookML</b>). "Consistent metric definitions across teams" → Looker.</li><li><b>Looker Studio</b> (formerly Data Studio): quick, free dashboards. Stale data → check the report's <b>data freshness/cache</b> settings.</li><li><b>Connected Sheets</b>: Google Sheets on billions of BigQuery rows.</li></ul><div class="box trap"><div class="l">Trap</div>A logical view is saved SQL, so it doesn't make queries faster. For speed, use a materialized view or BI Engine.</div>`}
+ ],
+ keys:["Sub-second BI → BI Engine","Repeated aggregations → materialized views","Shared metric definitions → Looker (LookML)"]},
+
+{id:"d4-l2",title:"Troubleshooting slow & costly queries",mins:4,
+ opener:{q:"A query joins a 5 TB events table to itself to compute each user's previous event. It's slow and expensive. What's the best rewrite?",
+  opts:["Add more slots","Use a window function such as LAG() OVER (PARTITION BY user ORDER BY ts)","Add LIMIT 1000","Export to Dataproc"],ans:1,
+  why:"Window functions compute row-to-row comparisons in a single pass. Self-joins on huge tables are a classic BigQuery anti-pattern."},
+ cards:[
+  {h:"The checklist",b:`<ol><li>Read the <b>execution graph</b>: slow stages, bytes shuffled, skew.</li><li>Select only the needed columns. <mark>LIMIT doesn't cut bytes scanned.</mark></li><li>Filter on <b>partition/cluster</b> columns early.</li><li>Filter <i>before</i> joins. Watch for <b>skew</b> and accidental <b>cross joins</b>.</li><li>Self-joins → <mark>window functions</mark>.</li><li>Exact count not needed → <code>APPROX_COUNT_DISTINCT</code>.</li><li><b>Dry run</b> to see bytes first. Set <b>maximum bytes billed</b> as a safety cap.</li></ol>`},
+  {h:"Search & needle-in-haystack",b:`<ul><li><b>Search indexes</b> + <code>SEARCH()</code>: find specific IDs or text in huge log tables quickly.</li><li>Clustering on the lookup column also helps point lookups.</li></ul>`}
+ ],
+ keys:["Self-join → window function","Fewer columns + partition filters","Dry run + maximum bytes billed"]},
+
+{id:"d4-l3",title:"Secure sharing inside BigQuery",mins:5,
+ opener:{q:"A partner team should see aggregated revenue per region, but must not be able to query the underlying orders table. What should you create?",
+  opts:["Grant dataViewer on the orders dataset","An authorized view in a separate dataset, authorized to read the orders dataset","A copy of the orders table","A row-level policy on orders"],ans:1,
+  why:"An authorized view lets users query the view's results without having access to the source tables. Put it in a separate dataset and authorize it on the source."},
+ cards:[
+  {h:"Pick by what you restrict",b:`<table><tr><th>Need</th><th>Feature</th></tr><tr><td>Share results, not sources</td><td><mark>Authorized view</mark> (also authorized datasets/routines)</td></tr><tr><td>Different rows per user</td><td><mark>Row-level access policy</mark></td></tr><tr><td>Hide sensitive columns</td><td><mark>Policy tags</mark> (column-level security)</td></tr><tr><td>Show masked values</td><td><mark>Dynamic data masking</mark></td></tr><tr><td>Find/transform PII before load</td><td>Sensitive Data Protection</td></tr></table>`},
+  {h:"How it works",b:`<ul><li>Row policy: <code>CREATE ROW ACCESS POLICY … GRANT TO ("group:apac@…") FILTER USING (region="APAC")</code>.</li><li>Policy tags live in a taxonomy (Dataplex). Grant <b>Fine-Grained Reader</b> to those who may see the real values.</li><li>Masking rules: nullify, hash, last four characters, default value.</li></ul><div class="box brain"><div class="l">Exam brain</div>"One view per region" or "one table per team" is usually the high-maintenance wrong answer. Use row-level policies.</div>`}
+ ],
+ keys:["Results only → authorized view","Rows → row access policy · columns → policy tags · masked values → dynamic masking"]},
+
+{id:"d4-l4",title:"ML fundamentals that keep showing up",mins:6,
+ opener:{q:"Your neural network has 99% training accuracy but 70% on new data. What should you try first?",
+  opts:["Train for many more epochs","Add regularization such as dropout or L2","Remove the validation set","Increase the learning rate a lot"],ans:1,
+  why:"Great training accuracy with poor generalization is overfitting. Regularization (dropout, L1/L2), more data, fewer features or early stopping help. Training longer makes it worse."},
+ cards:[
+  {h:"Diagnose the model",b:`<table><tr><th>Symptom</th><th>Problem → fix</th></tr><tr><td>Good train, bad test</td><td><mark>Overfitting</mark> → L1/L2, dropout, more data, early stopping, fewer features</td></tr><tr><td>Bad train and test</td><td><b>Underfitting</b> → more features, feature crosses, more complex model</td></tr><tr><td>Good offline, bad in prod</td><td><mark>Training-serving skew</mark> / drift → same preprocessing, Feature Store, monitoring</td></tr><tr><td>Too good to be true</td><td><b>Data leakage</b> → remove leaking features, split by time</td></tr><tr><td>Loss jumps around</td><td>Learning rate too high</td></tr></table>`},
+  {h:"Metrics",b:`<ul><li><b>Precision</b>: of the items I flagged, how many were right. Use it when false alarms are costly.</li><li><mark>Recall</mark>: of the real positives, how many I caught. Use it when misses are costly (fraud, disease).</li><li><b>F1</b> balances both. <b>AUC-ROC</b> measures ranking quality. Regression uses RMSE/MAE.</li><li><mark>Imbalanced classes</mark>: accuracy misleads. Use precision/recall/PR-AUC, and downsample or upweight.</li></ul>`},
+  {h:"Features",b:`<ul><li>One-hot for low-cardinality categories. <mark>Embeddings / hash buckets</mark> for high cardinality (IDs, words).</li><li><b>Bucketize</b> numbers with nonlinear effects (age bands). <b>Feature crosses</b> (lat × long).</li><li>Normalize numeric features. Split train/validation/test, and <b>split by time</b> for time series.</li><li>Changing behaviour (fashion, fraud) → retrain regularly on <mark>old + new data</mark>.</li><li>L1 → sparse weights (feature selection). L2 → small weights overall.</li></ul>`}
+ ],
+ keys:["Overfit → regularize / dropout / more data","Rare positives → recall, not accuracy","High-cardinality → embeddings"]},
+
+{id:"d4-l5",title:"BigQuery ML",mins:5,
+ opener:{q:"Marketing analysts who know SQL want to segment customers into groups based on purchase behaviour. Data is already in BigQuery. What's the quickest approach?",
+  opts:["Export to Vertex AI custom training","BigQuery ML with model_type='kmeans'","Build a TensorFlow model in a notebook","Use the Vision API"],ans:1,
+  why:"Segmentation without labels is clustering, and BigQuery ML k-means runs it with SQL where the data already lives."},
+ cards:[
+  {h:"Model types",b:`<table><tr><th>Problem</th><th>model_type</th></tr><tr><td>Predict a number</td><td>linear_reg, boosted_tree_regressor, dnn_regressor</td></tr><tr><td>Predict a category</td><td>logistic_reg, boosted_tree_classifier, AutoML</td></tr><tr><td>Segments (no labels)</td><td><mark>kmeans</mark></td></tr><tr><td>Recommendations</td><td><mark>matrix_factorization</mark></td></tr><tr><td>Forecast / anomalies</td><td><mark>arima_plus</mark>, ML.DETECT_ANOMALIES</td></tr><tr><td>Call Gemini / Vertex</td><td>Remote models (ML.GENERATE_TEXT, ML.GENERATE_EMBEDDING)</td></tr></table>`},
+  {h:"Workflow",b:`<p><code>CREATE MODEL … AS SELECT</code> → <code>ML.EVALUATE</code> → <code>ML.PREDICT</code>. Explainability with <code>ML.EXPLAIN_PREDICT</code>.</p><ul><li>Put preprocessing in the <mark>TRANSFORM</mark> clause so the same steps run at prediction time (avoids skew).</li><li>Export models to Vertex AI for low-latency online serving.</li></ul>`}
+ ],
+ keys:["SQL users + data in BigQuery → BigQuery ML","kmeans = segments · matrix_factorization = recommendations · arima_plus = forecasts","TRANSFORM prevents training-serving skew"]},
+
+{id:"d4-l6",title:"Vertex AI & pre-trained APIs",mins:5,
+ opener:{q:"A logistics company wants to extract fields from scanned delivery receipts. It has no ML team. What should it use?",
+  opts:["Vertex AI custom training with TensorFlow","Document AI","BigQuery ML linear regression","Dataproc with Spark MLlib"],ans:1,
+  why:"Document AI is a pre-trained, managed service for parsing documents. It's the least-effort answer when no ML expertise exists."},
+ cards:[
+  {h:"Which ML tool?",b:`<table><tr><th>Situation</th><th>Use</th></tr><tr><td>Common task, no ML team</td><td><mark>Pre-trained APIs</mark>: Vision, Natural Language, Speech-to-Text, Translation, Video Intelligence, Document AI, Gemini</td></tr><tr><td>Custom model, labelled data, little code</td><td><mark>Vertex AI AutoML</mark></td></tr><tr><td>Full control (TF/PyTorch), GPUs/TPUs</td><td><b>Vertex AI custom training</b></td></tr><tr><td>SQL users, data in BigQuery</td><td>BigQuery ML</td></tr><tr><td>Repeatable ML workflow</td><td><b>Vertex AI Pipelines</b></td></tr></table><p>Try the <b>ML Tool Picker</b> in this domain.</p>`},
+  {h:"Serving & ops",b:`<ul><li><mark>Online prediction</mark> (endpoint, low latency, synchronous) vs <mark>batch prediction</mark> (big volume, async, output to GCS/BigQuery).</li><li><b>Feature Store</b>: consistent features for training and serving.</li><li><b>Model Monitoring</b>: skew and drift alerts.</li><li>Notebooks: <b>Vertex AI Workbench / Colab Enterprise</b> (Datalab is retired). Hyperparameter tuning built in.</li></ul>`}
+ ],
+ keys:["No ML team → pre-trained API","Custom + little code → AutoML","Real-time → online prediction; nightly scoring → batch prediction"]},
+
+{id:"d4-l7",title:"GenAI: embeddings, vector search & RAG",mins:4,
+ opener:{q:"HR wants a chatbot that answers employees' questions using 5,000 internal policy PDFs, and the answers must be grounded in those documents. What's the right pattern?",
+  opts:["Fine-tune a model on the PDFs every hour","Retrieval-augmented generation: embed document chunks, retrieve the most relevant ones with vector search, and pass them to Gemini","Train a BigQuery ML logistic regression","Ask Gemini without any documents"],ans:1,
+  why:"RAG retrieves relevant passages at question time and grounds the model's answer in them. It's cheaper and fresher than constant fine-tuning."},
+ cards:[
+  {h:"The RAG pipeline",b:`<ol><li><b>Collect</b> docs in GCS (BigQuery object tables).</li><li><b>Parse &amp; chunk</b> (Document AI / Dataflow).</li><li><b>Embed</b>: <code>ML.GENERATE_EMBEDDING</code> or Vertex AI embeddings.</li><li><b>Index</b>: BigQuery vector index, AlloyDB, or Vertex AI Vector Search.</li><li><b>Retrieve</b> with <code>VECTOR_SEARCH</code>, then <b>generate</b> with Gemini.</li></ol><div class="box pic"><div class="l">Picture it</div>An embedding is a location on a "meaning map". "Cheap flight to Bali" and "budget airfare Denpasar" sit right next to each other.</div>`},
+  {h:"Data engineer concerns",b:`<ul><li>Chunk size and overlap, plus metadata for filtering.</li><li><mark>Re-embed incrementally</mark> when documents change, so answers don't go stale.</li><li>Apply the same access controls to retrieved chunks as to the source docs.</li></ul>`}
+ ],
+ keys:["Answers from your own docs → RAG","Embeddings + vector index + retrieval + LLM","Keep embeddings fresh"]},
+
+{id:"d4-l8",title:"Sharing data beyond your team",mins:4,
+ opener:{q:"You must share a constantly updated BigQuery dataset with 40 external partners. They should always see fresh data, pay for their own queries, and you don't want to copy data. What should you use?",
+  opts:["Nightly exports to GCS with signed URLs","Analytics Hub (BigQuery sharing) listing","Copy the dataset into each partner's project daily","Give partners dataViewer on your project"],ans:1,
+  why:"Analytics Hub gives subscribers a linked dataset, a live read-only pointer with no copies, and subscribers pay for their own compute."},
+ cards:[
+  {h:"Analytics Hub (BigQuery sharing)",b:`<ul><li>Publishers create <b>exchanges</b> and <b>listings</b>. Subscribers get a <mark>linked dataset</mark>: read-only, live, no copy.</li><li>Works across organizations. Exchanges can be public, private or commercial.</li><li><b>Data clean rooms</b>: joint analysis with privacy rules (e.g. aggregation thresholds), without exposing raw rows.</li><li>Billing rule: <mark>the project that runs the query pays for compute</mark>. The table owner pays for storage.</li></ul>`}
+ ],
+ keys:["Share live data, no copies, many consumers → Analytics Hub","Joint analysis without raw access → data clean room"]}
+];
+
+PDE.tools.mlpick = {title:"ML Tool Picker",sub:"BigQuery ML, AutoML, custom training or a pre-trained API?",
+ intro:"ML questions on the PDE are mostly about choosing the right level of tool. Answer as the scenario would.",
+ nodes:{
+  start:{q:"Is this a common task that Google already has a model for (OCR, labels, sentiment, translation, speech, documents, general text generation)?",opts:[["Yes, a common task","api"],["No, it's specific to our business data","custom"]]},
+  api:{result:"Pre-trained API (or Gemini)",why:"Vision, Natural Language, Speech-to-Text, Translation, Video Intelligence and Document AI need no training. Gemini covers general generation and understanding.",keys:"no ML team, fastest, least effort",trap:"Don't train a custom model for something an API already does.",color:"#d97706"},
+  custom:{q:"Who builds it, and where is the data?",opts:[["SQL analysts, data already in BigQuery","bqml"],["Engineers with labelled data, want minimal ML code","automl"],["Data scientists who need full control (custom architectures, TF/PyTorch, GPUs/TPUs)","vtx"]]},
+  bqml:{q:"What kind of problem?",opts:[["Predict a number","bq_reg"],["Predict a category","bq_cls"],["Find segments without labels","bq_km"],["Recommend products","bq_mf"],["Forecast a time series","bq_ts"]]},
+  bq_reg:{result:"BigQuery ML: linear_reg / boosted_tree_regressor",why:"Regression with SQL. Evaluate with ML.EVALUATE, predict with ML.PREDICT.",color:"#16a34a"},
+  bq_cls:{result:"BigQuery ML: logistic_reg / boosted_tree_classifier",why:"Classification with SQL. Use TRANSFORM for consistent preprocessing.",color:"#16a34a"},
+  bq_km:{result:"BigQuery ML: kmeans",why:"Unsupervised clustering for customer segmentation.",color:"#16a34a"},
+  bq_mf:{result:"BigQuery ML: matrix_factorization",why:"Collaborative filtering recommendations from user-item interactions.",color:"#16a34a"},
+  bq_ts:{result:"BigQuery ML: arima_plus",why:"Time-series forecasting with seasonality and holidays, plus anomaly detection.",color:"#16a34a"},
+  automl:{result:"Vertex AI AutoML",why:"Google trains and tunes a custom model on your labelled data (tabular, image, text, video) with minimal code.",keys:"custom model, little ML expertise",color:"#4f46e5"},
+  vtx:{result:"Vertex AI custom training (+ Pipelines)",why:"Your own code and containers, distributed training on GPUs/TPUs, hyperparameter tuning, and Pipelines for repeatability.",keys:"full control, TensorFlow/PyTorch",color:"#4f46e5"}
+ }};
+
+const Q=(id,topic,q,opts,ans,tip,mock)=>({id,d:"d4",topic,q,opts:opts.map(([t,w])=>({t,w})),ans:Array.isArray(ans)?ans:[ans],tip,mock:!!mock});
+PDE.questions.push(
+Q("d4q01","BI performance","Executives run the same daily revenue-by-region aggregation on a 20 TB fact table dozens of times a day. You want to cut cost and latency without changing their queries. What should you create?",[
+ ["A logical view","Saved SQL that re-runs the full scan every time."],
+ ["A materialized view with the aggregation","Correct. Precomputed, auto-refreshed, and BigQuery can rewrite queries on the base table to use it."],
+ ["A table copy refreshed manually","Manual and stale."],
+ ["More slots","Faster, but you still pay for the full scans."]],1,"Repeated aggregations → materialized view."),
+Q("d4q02","BI performance","Hundreds of users interact with a Looker Studio dashboard on BigQuery, and every filter click takes several seconds. What gives the biggest improvement with the least effort?",[
+ ["Reserve BI Engine capacity","Correct. In-memory acceleration designed for BI tools and concurrency."],
+ ["Move the data to Cloud SQL","Not built for this analytical volume."],
+ ["Rewrite the dashboard in custom JavaScript","High effort."],
+ ["Disable the query cache","Makes it slower."]],0,"Interactive BI speed → BI Engine."),
+Q("d4q03","BI tools","Different teams calculate \"active customer\" differently, so their dashboards disagree. Leadership wants one governed definition used everywhere. What should you use?",[
+ ["Looker with metrics defined in LookML","Correct. A semantic layer defines metrics once for every dashboard."],
+ ["More Looker Studio reports","Each report would still define the metric its own way."],
+ ["A shared spreadsheet of definitions","Not enforced."],
+ ["BI Engine","Speeds queries up but doesn't govern definitions."]],0,"Consistent metrics → Looker semantic layer (LookML)."),
+Q("d4q04","BI tools","A Looker Studio report on BigQuery doesn't show orders from the last hour, although the BigQuery table has them. What should you do?",[
+ ["Re-load the BigQuery table","The table is already up to date."],
+ ["Adjust the report's data freshness (cache) setting or refresh the data source","Correct. The report is serving cached results."],
+ ["Clear your browser history","The cache isn't in the browser."],
+ ["Partition the table by hour","Unrelated to report caching."]],1,"Stale dashboard, fresh table → BI tool cache settings."),
+Q("d4q05","Query tuning","An analyst's query uses SELECT * with LIMIT 10 on a 30 TB table to \"peek\" at data, and the bill is high. What should you recommend?",[
+ ["Keep LIMIT; it already limits cost","LIMIT doesn't reduce bytes scanned."],
+ ["Use the table preview in the console, or select specific columns with a partition filter","Correct. Preview is free, and fewer columns plus partition pruning cut bytes."],
+ ["Increase the slot reservation","Doesn't reduce on-demand bytes."],
+ ["Copy the table to a smaller dataset","Unnecessary."]],1,"Peek at data → preview; LIMIT ≠ cheaper."),
+Q("d4q06","Query tuning","A query that joins a large orders table to a customers table is slow. The execution graph shows one worker processing far more data than the others in the join stage, because one customer_id has millions of rows. What is this, and what helps?",[
+ ["Data skew. Filter early, pre-aggregate the heavy key, or handle the outlier separately","Correct. Skew means one key overloads one worker."],
+ ["A cross join. Add LIMIT","LIMIT doesn't fix the join pattern."],
+ ["Not enough storage. Enable long-term storage","Unrelated."],
+ ["A caching problem. Disable the cache","Unrelated."]],0,"Uneven stage work → skew."),
+Q("d4q07","Query tuning","You need the number of distinct users per day over 2 billion rows for a dashboard, and ±1% accuracy is acceptable. What's the most efficient function?",[
+ ["COUNT(DISTINCT user_id)","Exact, but more expensive and slower at this scale."],
+ ["APPROX_COUNT_DISTINCT(user_id)","Correct. HyperLogLog-based, fast and approximate."],
+ ["ARRAY_AGG(user_id)","Builds huge arrays."],
+ ["SELECT * then count in the BI tool","Moves far too much data."]],1,"Approximate is fine → APPROX_ functions."),
+Q("d4q08","Security","Country managers must only see rows for their own country in a single shared sales table, and you don't want to maintain one view per country. What should you use?",[
+ ["Row-level access policies on the table, one per country group","Correct. Rows are filtered automatically by the user's group."],
+ ["A separate dataset per country","Duplicates data and maintenance."],
+ ["Policy tags on the country column","Hides the column, it doesn't filter rows."],
+ ["An authorized view per country","Works, but it's the high-maintenance pattern the question rules out."]],0,"Filter rows per user → row-level access policy."),
+Q("d4q09","Security","The salary column in an HR table must be hidden from everyone except the payroll group, while other columns stay visible to all analysts. What should you do?",[
+ ["Apply a policy tag to the salary column and grant Fine-Grained Reader only to payroll","Correct. Column-level security through policy tags."],
+ ["Create a separate table without salary for analysts","Duplication."],
+ ["Row-level access policy","Restricts rows, not columns."],
+ ["Encrypt the column with CMEK","CMEK is table/dataset level, and everyone with access can still read it."]],0,"Hide a column → policy tags."),
+Q("d4q10","Security","A partner should query only aggregated results from your raw transactions dataset, without any access to the raw tables. What's the standard approach?",[
+ ["Grant dataViewer on the raw dataset","Exposes the raw tables."],
+ ["Create an authorized view in a separate dataset, authorize it on the raw dataset, and grant the partner access to the view's dataset","Correct. Users see results, not sources."],
+ ["Export results to CSV daily","Manual and stale."],
+ ["Row-level policy on raw tables","Still exposes raw rows."]],1,"Share results, not sources → authorized view."),
+Q("d4q11","Security","Support agents need to search by customer phone number but must only see the last 4 digits, while fraud investigators see full numbers. All of them query the same table. What should you configure?",[
+ ["Dynamic data masking with a \"last four characters\" rule on a policy tag, and Fine-Grained Reader for investigators","Correct. Masked for most users, full values for authorized ones, all in one table."],
+ ["Two tables","Duplication and drift."],
+ ["Redact phone numbers with DLP at load","Investigators would lose the real values."],
+ ["VPC Service Controls","Not a column control."]],0,"Masked values for some users → dynamic data masking."),
+Q("d4q12","ML basics","A fraud model reports 99.5% accuracy, but it never flags any fraud. Fraud is 0.5% of transactions. What should you do?",[
+ ["Deploy it; 99.5% is great","It predicts \"not fraud\" for everything."],
+ ["Evaluate with precision/recall (or PR-AUC), and rebalance the training data by downsampling the majority class or upweighting fraud","Correct. Accuracy is misleading on imbalanced data."],
+ ["Add more non-fraud examples","Worsens the imbalance."],
+ ["Increase the learning rate","Unrelated to imbalance."]],1,"Imbalanced → precision/recall + rebalance."),
+Q("d4q13","ML basics","A medical screening model must miss as few sick patients as possible, even if that means more false alarms. Which metric should you optimize?",[
+ ["Precision","Penalizes false alarms, but the priority is not missing cases."],
+ ["Recall","Correct. Recall is the share of actual positives that you catch."],
+ ["Accuracy","Misleading for rare conditions."],
+ ["RMSE","For regression."]],1,"Don't miss positives → recall."),
+Q("d4q14","ML basics","A model has thousands of sparse features, many of them irrelevant. You want the model to automatically ignore useless features. Which technique fits best?",[
+ ["L1 regularization","Correct. L1 drives irrelevant weights to exactly zero (feature selection)."],
+ ["L2 regularization","Shrinks weights but rarely to zero."],
+ ["Increasing the batch size","Unrelated."],
+ ["Removing the test set","Never."]],0,"Sparse feature selection → L1."),
+Q("d4q15","ML basics","A product recommendation model performs well in offline tests but poorly in production. You find that training used normalized prices, while the serving code sends raw prices. What is this, and how do you prevent it?",[
+ ["Overfitting. Add dropout","The model is fine, the inputs differ."],
+ ["Training-serving skew. Use the same preprocessing at serving time (e.g. BigQuery ML TRANSFORM or a shared feature pipeline / Feature Store)","Correct."],
+ ["Data leakage. Remove the price feature","The feature is fine, its preprocessing differs."],
+ ["Underfitting. Use a bigger model","No."]],1,"Different preprocessing in prod → training-serving skew."),
+Q("d4q16","ML basics","A feature is user_id with 20 million distinct values. One-hot encoding makes the model enormous. What's a better representation?",[
+ ["Keep one-hot","Huge and sparse."],
+ ["An embedding (or hash buckets)","Correct. A dense, low-dimensional representation for high-cardinality categories."],
+ ["Drop all categorical features","Loses signal."],
+ ["Convert IDs to floats","Implies a meaningless order."]],1,"High cardinality → embeddings / hashing."),
+Q("d4q17","ML basics","Customer fashion preferences shift every season. How should you keep a recommendation model accurate over time?",[
+ ["Train once on all historical data","Goes stale."],
+ ["Retrain continuously on a combination of historical and new data, and evaluate on recent data","Correct. Learns new trends without forgetting stable patterns."],
+ ["Train only on the newest week","Too little data, and it forgets stable behaviour."],
+ ["Use the newest data as the test set and never retrain","Never adapts."]],1,"Changing behaviour → retrain on old + new."),
+Q("d4q18","BigQuery ML","An analyst team wants to forecast daily sales for 2,000 stores for the next 30 days, including seasonality and holidays, using SQL in BigQuery. Which model type?",[
+ ["linear_reg","Not built for time series."],
+ ["arima_plus","Correct. Time-series forecasting with seasonality and holiday effects in BigQuery ML."],
+ ["kmeans","Clustering."],
+ ["matrix_factorization","Recommendations."]],1,"Forecasting in BigQuery → ARIMA_PLUS."),
+Q("d4q19","BigQuery ML","You trained a BigQuery ML model with feature scaling and bucketizing written in the training SELECT. Predictions on new data look wrong. What's the best fix?",[
+ ["Move the preprocessing into the TRANSFORM clause of CREATE MODEL","Correct. TRANSFORM applies the same preprocessing automatically at prediction time."],
+ ["Retrain with more epochs","The issue is inconsistent preprocessing."],
+ ["Export to Vertex AI","Doesn't fix the mismatch."],
+ ["Use a different model type","Unrelated."]],0,"Consistent preprocessing in BQML → TRANSFORM."),
+Q("d4q20","ML tools","A retailer wants to automatically tag product photos with labels like \"shoe\" and \"red\". They have no data scientists. What's the quickest approach?",[
+ ["Vision API label detection","Correct. Pre-trained, no training needed."],
+ ["Vertex AI custom training","Needs ML expertise."],
+ ["BigQuery ML kmeans on pixels","Not appropriate."],
+ ["Dataproc Spark MLlib","Needs a lot of effort."]],0,"Common vision task, no ML team → Vision API."),
+Q("d4q21","ML tools","A manufacturer has 50,000 labelled images of its own specific circuit-board defects, which generic APIs don't recognize. It has limited ML expertise. What should it use?",[
+ ["Vision API label detection","Generic labels won't know these custom defects."],
+ ["Vertex AI AutoML image classification","Correct. A custom model trained on your labels with minimal code."],
+ ["BigQuery ML logistic regression","Not for images."],
+ ["Hand-written rules","Brittle."]],1,"Custom labels, little ML skill → AutoML."),
+Q("d4q22","ML serving","A model must score 200 million customers once a night and write the results to BigQuery. Latency per prediction doesn't matter. What should you use?",[
+ ["Online prediction endpoint called 200M times","Expensive and slow for bulk scoring."],
+ ["Vertex AI batch prediction (or BigQuery ML ML.PREDICT)","Correct. Built for large asynchronous jobs with output to BigQuery/GCS."],
+ ["Cloud Run functions per customer","Massive overhead."],
+ ["A notebook loop","Not scalable."]],1,"Bulk async scoring → batch prediction."),
+Q("d4q23","ML serving","A checkout app needs a fraud score within 100 ms for each payment. Which serving option fits?",[
+ ["Batch prediction every hour","Too late."],
+ ["Vertex AI online prediction endpoint","Correct. Low-latency synchronous predictions."],
+ ["A daily BigQuery ML ML.PREDICT job","Not real time."],
+ ["Export scores to GCS","Not per request."]],1,"Per-request, low latency → online prediction."),
+Q("d4q24","GenAI","A support chatbot must answer from 20,000 product manuals that are updated weekly, and its answers must cite the manuals. What's the best design?",[
+ ["Fine-tune an LLM weekly on all manuals","Costly, slow, and still not grounded per answer."],
+ ["RAG: chunk the manuals, generate embeddings, store them in a vector index, retrieve the top matches per question, and pass them to Gemini; re-embed changed manuals weekly","Correct. Grounded, fresh and citable."],
+ ["Keyword search only","Misses semantic matches and doesn't generate answers."],
+ ["Put all manuals in every prompt","Too large."]],1,"Answer from your own docs → RAG + keep embeddings fresh."),
+Q("d4q25","GenAI","Product descriptions are stored in a BigQuery table, and you want semantic similarity search (\"comfy running shoes\") directly in SQL. What should you do?",[
+ ["Use LIKE '%comfy%'","Keyword matching, not semantic."],
+ ["Generate embeddings with ML.GENERATE_EMBEDDING, create a vector index, and query with VECTOR_SEARCH","Correct. Native vector search in BigQuery."],
+ ["Export to Bigtable","No vector search."],
+ ["Use a materialized view","Unrelated."]],1,"Semantic search in BigQuery → embeddings + VECTOR_SEARCH."),
+Q("d4q26","Sharing","A data provider wants to sell access to a curated BigQuery dataset to many customers, who should query it in place and pay for their own compute, with no copies made. What should it use?",[
+ ["Analytics Hub (BigQuery sharing) with a commercial or private listing","Correct. Linked datasets, no copies, subscribers pay for queries."],
+ ["Nightly exports to each customer's bucket","Copies and staleness."],
+ ["dataViewer on the provider's project for every customer","Unmanageable, and customers' queries would bill to the wrong place."],
+ ["Cloud SQL replicas","Not for analytics sharing."]],0,"Share live, many consumers, no copies → Analytics Hub."),
+Q("d4q27","Sharing","A retailer and a consumer brand want to measure overlapping customers without either side seeing the other's raw customer list. What should they use?",[
+ ["Exchange CSV files","Exposes raw data."],
+ ["A BigQuery data clean room with aggregation thresholds","Correct. Joint analysis with privacy controls."],
+ ["Grant each other dataViewer","Exposes raw tables."],
+ ["Row-level security","Doesn't prevent row-level exposure across parties."]],1,"Joint analysis without raw access → data clean room."),
+
+/* mock-only */
+Q("d4m01","BI performance","Which statement about BigQuery materialized views is correct?",[
+ ["They store no data and recompute every time","That's a logical view."],
+ ["They're precomputed, refreshed automatically, and BigQuery can rewrite eligible queries to use them","Correct."],
+ ["They must be refreshed by a manual job every time","Refresh is automatic."],
+ ["They can only be queried from Looker","Any client can query them."]],1,null,true),
+Q("d4m02","Query tuning","You need to find the 50 log rows that contain a specific request ID in a 100 TB log table. Queries currently scan the whole table. What should you add?",[
+ ["A search index on the table, then query with SEARCH()","Correct. Search indexes speed up needle-in-a-haystack lookups."],
+ ["A materialized view","Not for arbitrary point lookups."],
+ ["BI Engine","For BI aggregations."],
+ ["LIMIT 50","Doesn't reduce bytes scanned."]],0,null,true),
+Q("d4m03","Security","Which TWO features restrict what data a user can see inside one BigQuery table?",[
+ ["Row-level access policies","Correct. They restrict rows."],
+ ["Policy tags (column-level security)","Correct. They restrict columns."],
+ ["Table expiration","Lifecycle, not access."],
+ ["Clustering","Storage layout."]],[0,1],null,true),
+Q("d4m04","ML basics","Training loss decreases steadily, but validation loss starts rising after epoch 8. What should you do?",[
+ ["Train for 50 more epochs","Overfits more."],
+ ["Use early stopping around epoch 8 and/or add regularization","Correct. Rising validation loss is the classic overfitting signal."],
+ ["Remove the validation set","You'd lose the signal."],
+ ["Increase model size","More capacity to overfit."]],1,null,true),
+Q("d4m05","ML basics","A model to predict house prices includes the final sale price rounded to the nearest thousand as a feature. Validation accuracy is nearly perfect. What's wrong?",[
+ ["Nothing","It's leaking the target."],
+ ["Data leakage: a feature contains the label. Remove it","Correct."],
+ ["Underfitting","The opposite symptom."],
+ ["Class imbalance","Not relevant to regression here."]],1,null,true),
+Q("d4m06","BigQuery ML","An e-commerce analyst wants \"customers who bought X also like Y\" recommendations from a purchases table in BigQuery, using SQL only. Which model?",[
+ ["matrix_factorization","Correct. Collaborative filtering recommendations in BigQuery ML."],
+ ["arima_plus","Forecasting."],
+ ["linear_reg","Regression."],
+ ["kmeans","Clustering, not item recommendations."]],0,null,true),
+Q("d4m07","ML tools","A call center wants transcripts of recorded calls plus the sentiment of each call, with no custom training. Which combination?",[
+ ["Speech-to-Text + Natural Language API","Correct. Pre-trained APIs for transcription and sentiment."],
+ ["Vision API + Translation API","Wrong modalities."],
+ ["Vertex AI custom training","Unnecessary."],
+ ["BigQuery ML kmeans","Not for transcription."]],0,null,true),
+Q("d4m08","ML ops","Your deployed model's input data distribution has been changing over the last month and accuracy is falling. Which Vertex AI capability detects this automatically?",[
+ ["Model Monitoring (skew and drift detection)","Correct."],
+ ["Batch prediction","Serving, not monitoring."],
+ ["AutoML","Training."],
+ ["Workbench","Notebooks."]],0,null,true),
+Q("d4m09","GenAI","Your RAG chatbot gives outdated answers after policy documents are updated. What's the most likely data-engineering fix?",[
+ ["Switch to a bigger LLM","The model isn't the issue. The retrieved context is stale."],
+ ["Re-generate embeddings for changed documents and refresh the vector index (incrementally)","Correct. Keep the retrieval corpus fresh."],
+ ["Increase the prompt length","Doesn't refresh the content."],
+ ["Delete the vector index","Breaks retrieval."]],1,null,true),
+Q("d4m10","Sharing","In a cross-project BigQuery setup, analysts in project A query a table owned by project B using on-demand pricing. Who pays for the query compute?",[
+ ["Project B (the table owner)","B pays for storage."],
+ ["Project A (where the query job runs)","Correct. Compute is billed to the project that runs the job."],
+ ["Split 50/50","No."],
+ ["Google","No."]],1,null,true),
+Q("d4m11","BI tools","Business users want to analyse billions of BigQuery rows using a familiar spreadsheet interface, with pivot tables and charts, without exporting data. What should they use?",[
+ ["Connected Sheets","Correct. Google Sheets on top of BigQuery, querying live."],
+ ["Export to CSV and open in Excel","Row limits, and the data goes stale."],
+ ["Cloud SQL","Not a spreadsheet."],
+ ["Dataprep","Data preparation, not spreadsheet analysis."]],0,null,true),
+Q("d4m12","Security","PII must be removed from free-text comments before data lands in BigQuery, and analysts must never see raw comments. Where should de-identification happen?",[
+ ["In a BigQuery view after loading","Raw PII would already be stored in BigQuery."],
+ ["In the ingestion pipeline (e.g. Dataflow calling Sensitive Data Protection) before writing to BigQuery","Correct. De-identify upstream."],
+ ["In the BI tool","Too late, and easy to bypass."],
+ ["Nowhere; use CMEK","Encryption doesn't remove PII from what readers see."]],1,null,true)
+);
+
+PDE.flash.push(
+ {id:"f4-01",d:"d4",f:"Sub-second dashboards, many users",b:"BI Engine"},
+ {id:"f4-02",d:"d4",f:"Same aggregation queried repeatedly",b:"Materialized view",x:"Auto-refresh + automatic query rewrite."},
+ {id:"f4-03",d:"d4",f:"One governed metric definition",b:"Looker (LookML)"},
+ {id:"f4-04",d:"d4",f:"Self-join to compare rows",b:"Window function (e.g. LAG)"},
+ {id:"f4-05",d:"d4",f:"Find one ID in a huge log table",b:"Search index + SEARCH()"},
+ {id:"f4-06",d:"d4",f:"Distinct count, ±1% is fine",b:"APPROX_COUNT_DISTINCT"},
+ {id:"f4-07",d:"d4",f:"Share results, not source tables",b:"Authorized view"},
+ {id:"f4-08",d:"d4",f:"Each manager sees only their rows",b:"Row-level access policy"},
+ {id:"f4-09",d:"d4",f:"Hide a column from most users",b:"Policy tags (column-level security)"},
+ {id:"f4-10",d:"d4",f:"Show only last 4 digits to some users",b:"Dynamic data masking"},
+ {id:"f4-11",d:"d4",f:"Great on train, bad on test",b:"Overfitting",x:"Regularization, dropout, more data, early stopping."},
+ {id:"f4-12",d:"d4",f:"Rare positives, can't miss them",b:"Optimize recall"},
+ {id:"f4-13",d:"d4",f:"Accuracy 99% on 1% fraud data",b:"Misleading → precision/recall, rebalance"},
+ {id:"f4-14",d:"d4",f:"Automatic feature selection",b:"L1 regularization"},
+ {id:"f4-15",d:"d4",f:"Good offline, bad in prod (preprocessing differs)",b:"Training-serving skew",x:"TRANSFORM / Feature Store."},
+ {id:"f4-16",d:"d4",f:"20M distinct user IDs as a feature",b:"Embeddings / hash buckets"},
+ {id:"f4-17",d:"d4",f:"BQML: segments without labels",b:"kmeans"},
+ {id:"f4-18",d:"d4",f:"BQML: recommendations",b:"matrix_factorization"},
+ {id:"f4-19",d:"d4",f:"BQML: forecasting",b:"arima_plus"},
+ {id:"f4-20",d:"d4",f:"OCR receipts, no ML team",b:"Document AI"},
+ {id:"f4-21",d:"d4",f:"Custom image labels, little ML skill",b:"Vertex AI AutoML"},
+ {id:"f4-22",d:"d4",f:"Score 200M rows nightly",b:"Batch prediction"},
+ {id:"f4-23",d:"d4",f:"Fraud score within 100 ms",b:"Online prediction endpoint"},
+ {id:"f4-24",d:"d4",f:"Chatbot grounded in company docs",b:"RAG: embeddings + vector search + Gemini"},
+ {id:"f4-25",d:"d4",f:"Share live data with partners, no copies",b:"Analytics Hub (BigQuery sharing)"},
+ {id:"f4-26",d:"d4",f:"Joint analysis without exposing raw rows",b:"Data clean room"}
+);
+PDE.mocks.splice(3,0,{id:"mini-d4",title:"Mini mock · Analysis & ML",n:10,min:15,domains:["d4"],lockText:"Needs 10 mock questions"});
+})();
+
+(function(){
+const d5 = PDE.domains.find(d=>d.id==="d5");
+d5.ready = true;
+d5.tools = ["recover"];
+d5.lessons = [
+{id:"d5-l1",title:"BigQuery pricing: on-demand vs Editions",mins:5,
+ opener:{q:"A company's BigQuery on-demand bill is large and swings wildly month to month, while the workload is steady. Finance wants predictable spend. What should you recommend?",
+  opts:["Buy flat-rate slots","Move to BigQuery Editions with a reservation: a baseline sized for the steady load plus autoscaling, optionally a commitment","Add LIMIT to queries","Switch all queries to batch priority"],ans:1,
+  why:"Capacity pricing (Editions) makes compute spend predictable. Flat-rate was retired and replaced by Editions. LIMIT and batch priority don't change billing."},
+ cards:[
+  {h:"Two ways to pay for compute",b:`<table><tr><th>Model</th><th>How</th><th>Good for</th></tr><tr><td><b>On-demand</b></td><td>Per TiB scanned (shared slot pool, about 2,000 slots per project)</td><td>Spiky or small workloads</td></tr><tr><td><mark>Editions</mark> (Standard / Enterprise / Enterprise Plus)</td><td>Per slot-hour: <b>reservations</b> with a <b>baseline</b> + <b>autoscaling</b> up to a max, optional 1/3-year <b>commitments</b></td><td>Steady heavy workloads, predictable budgets, isolation</td></tr></table><div class="box trap"><div class="l">Old fact</div><mark>Flat-rate is retired.</mark> When old questions say flat-rate, think Editions + reservations.</div>`},
+  {h:"Reservations & guardrails",b:`<ul><li>Create reservations (<code>etl</code>, <code>bi</code>, <code>adhoc</code>) and <b>assign</b> projects/folders to them, <mark>so ETL can't starve dashboards</mark>. Idle slots can be shared.</li><li>Enterprise Plus adds things like <b>managed disaster recovery</b>.</li><li>Guardrails: <mark>custom quotas</mark> (bytes per user/project per day), <b>maximum bytes billed</b> per query, dry runs, budgets + alerts, billing export to BigQuery.</li><li>Storage: long-term pricing after 90 days unmodified, plus partition/table expiration.</li></ul>`}
+ ],
+ keys:["Predictable compute → Editions reservations (baseline + autoscaling)","Isolate ETL vs BI → separate reservations","Stop runaway queries → custom quotas + max bytes billed"]},
+
+{id:"d5-l2",title:"Cost levers across services",mins:4,
+ opener:{q:"Which change reduces Dataproc cost the most for nightly batch jobs without risking data loss?",
+  opts:["Keep a persistent cluster with bigger machines","Ephemeral clusters reading/writing GCS, with Spot secondary workers and autoscaling","Use Spot VMs for the master node","Store data on cluster HDFS"],ans:1,
+  why:"Pay only while jobs run, keep data in GCS, and put cheap Spot capacity on compute-only secondary workers."},
+ cards:[
+  {h:"Per-service levers",b:`<table><tr><th>Service</th><th>Levers</th></tr><tr><td>Dataproc</td><td><mark>Ephemeral clusters</mark>, Spot secondaries, autoscaling, scheduled deletion. Persistent only for constant/interactive use</td></tr><tr><td>Dataflow</td><td>Max workers cap, right-sized machines, <mark>FlexRS</mark> for non-urgent batch, Streaming Engine</td></tr><tr><td>Cloud Storage</td><td>Lifecycle rules, Autoclass, avoid frequent cold reads</td></tr><tr><td>Bigtable / Spanner</td><td>Autoscaling, HDD for cold big data (Bigtable)</td></tr><tr><td>All</td><td><b>Labels</b> + billing export to BigQuery to see who spends what</td></tr></table>`},
+  {h:"Keep critical jobs safe",b:`<ul><li>Dedicated BigQuery <b>reservations</b> for critical pipelines.</li><li>Separate Bigtable clusters/app profiles for serving vs batch.</li><li>Composer pools/priorities for critical tasks.</li></ul>`}
+ ],
+ keys:["Dataproc → ephemeral + Spot secondaries","Dataflow batch that can wait → FlexRS","Who spends what → labels + billing export"]},
+
+{id:"d5-l3",title:"Automation with Composer",mins:5,
+ opener:{q:"Re-running yesterday's Composer DAG doubled yesterday's rows in a BigQuery table. What design change prevents this?",
+  opts:["Never re-run DAGs","Make tasks idempotent: write each run's partition with WRITE_TRUNCATE (e.g. table$YYYYMMDD) or use MERGE","Add more Composer workers","Use a bigger machine type"],ans:1,
+  why:"Idempotent tasks produce the same result no matter how many times they run. Overwriting the run's partition or MERGEing prevents duplicates on retries and backfills."},
+ cards:[
+  {h:"Good DAG habits",b:`<ul><li><mark>Idempotent tasks</mark>: <code>WRITE_TRUNCATE</code> per partition or <code>MERGE</code>, never blind appends.</li><li>Parameterize by logical date (<code>{{ ds }}</code>) so <mark>backfills</mark> and reruns work.</li><li><b>Sensors</b> wait for conditions (file in GCS, upstream DAG). <b>Retries</b> with delays, plus <b>SLAs</b> and failure alerts.</li><li>Keep heavy work in BigQuery/Dataflow/Dataproc operators. Composer orchestrates, it doesn't crunch data.</li><li>DAG files are deployed to the environment's GCS <code>dags/</code> folder, ideally via CI/CD.</li></ul>`},
+  {h:"Environment health",b:`<ul><li>Tasks stuck <b>queued</b> → not enough worker capacity or concurrency → scale workers / adjust parallelism.</li><li>Scheduler lagging → too many or too heavy DAG files at parse time. Keep top-level DAG code light.</li></ul>`}
+ ],
+ keys:["Idempotent + date-parameterized DAGs","Queued tasks → scale the environment","Composer orchestrates; services do the work"]},
+
+{id:"d5-l4",title:"Organizing workloads",mins:3,
+ opener:{q:"Hundreds of non-urgent ad-hoc reports run at 9:00 and hit BigQuery's concurrent interactive query limit, delaying urgent queries. What's a simple fix?",
+  opts:["Run the non-urgent reports with batch priority","Delete old tables","Use LIMIT","Switch to Cloud SQL"],ans:0,
+  why:"Batch-priority queries wait for idle resources and don't count toward the concurrent interactive limit, so urgent queries get through first."},
+ cards:[
+  {h:"Interactive vs batch, isolation",b:`<ul><li><b>Interactive</b> (default): runs ASAP and counts toward concurrency.</li><li><mark>Batch</mark>: queued until resources are free. Fine for non-urgent work.</li><li><mark>Workload isolation</mark>: separate reservations for ETL / BI / data science, and separate projects for billing visibility.</li><li>Capacity planning: watch slot usage over time (<code>INFORMATION_SCHEMA.JOBS</code>, admin resource charts) to size the baseline vs autoscaling.</li></ul>`}
+ ],
+ keys:["Non-urgent queries → batch priority","Different teams/workloads → separate reservations"]},
+
+{id:"d5-l5",title:"Monitoring & troubleshooting",mins:5,
+ opener:{q:"Your BigQuery bill doubled last week. What's the fastest way to find which users and queries caused it?",
+  opts:["Ask every team","Query INFORMATION_SCHEMA.JOBS (or the admin resource charts) for bytes billed by user and query","Check Pub/Sub metrics","Read Dataflow logs"],ans:1,
+  why:"INFORMATION_SCHEMA.JOBS records every job with its user, bytes billed and slot usage, so it's the right forensic source."},
+ cards:[
+  {h:"The observability toolbox",b:`<table><tr><th>Tool</th><th>Use</th></tr><tr><td>Cloud Monitoring</td><td>Metrics, dashboards, <mark>alerting policies</mark> (Dataflow system lag/data freshness, Pub/Sub oldest unacked age, BigQuery slots)</td></tr><tr><td>Cloud Logging</td><td>Logs, <mark>log-based metrics</mark>, <mark>log sinks</mark> → BigQuery / GCS / Pub/Sub</td></tr><tr><td>Audit logs</td><td>Who did what, when</td></tr><tr><td><mark>INFORMATION_SCHEMA.JOBS</mark></td><td>Expensive queries, users, errors, queueing</td></tr><tr><td>Billing export</td><td>Cost trends by project and label</td></tr></table>`},
+  {h:"Common errors",b:`<ul><li><b>429 / quotaExceeded / rateLimitExceeded</b> → <mark>retry with exponential backoff</mark>, and request a quota increase if it's sustained.</li><li><b>Resources exceeded</b> (BigQuery) → reduce data early, avoid a global ORDER BY on huge results, break the query up.</li><li><b>Permission denied</b> on a job → check the job's <mark>service account</mark>, not your own user.</li><li>Dataflow OOM → bigger machines, fix hot keys, smaller side inputs.</li></ul>`}
+ ],
+ keys:["Alert on lag/backlog metrics","Cost forensics → INFORMATION_SCHEMA.JOBS","Rate/quota errors → exponential backoff"]},
+
+{id:"d5-l6",title:"Designing for failure",mins:5,
+ opener:{q:"A teammate accidentally dropped a BigQuery table 2 hours ago. What's the fastest recovery?",
+  opts:["Restore from a monthly export","Recover it with time travel (e.g. restore a snapshot of the table as of before the drop)","Open a ticket for fail-safe","Rebuild it from source systems"],ans:1,
+  why:"Deleted tables can be recovered within the time-travel window (up to 7 days). Fail-safe needs Google support and applies after the time-travel window has passed."},
+ cards:[
+  {h:"Per-service recovery",b:`<table><tr><th>Service</th><th>Tools</th></tr><tr><td>BigQuery</td><td><mark>Time travel</mark> (≤7 d) + fail-safe, snapshots, cross-region replication, managed DR (Enterprise Plus)</td></tr><tr><td>Cloud Storage</td><td>Dual/multi-region, turbo replication, versioning, soft delete</td></tr><tr><td>Pub/Sub</td><td><mark>Seek</mark> to snapshot/timestamp, dead-letter topics</td></tr><tr><td>Dataflow</td><td>Drain/update, snapshots, restart in another region, dead-letter outputs</td></tr><tr><td>Dataproc</td><td>Data in GCS, HA mode, just recreate the cluster</td></tr><tr><td>Bigtable</td><td>Replication + multi-cluster routing, backups</td></tr><tr><td>Cloud SQL</td><td>HA (zone), <mark>cross-region replica</mark> (region), PITR</td></tr><tr><td>Spanner</td><td>Multi-region configs, PITR, backups</td></tr></table>`},
+  {h:"Bad or missing data",b:`<ul><li>Validate at ingest: schemas, Dataplex quality, Dataform assertions.</li><li>Route bad records to <mark>dead-letter</mark> instead of failing everything.</li><li>Keep <mark>immutable raw copies</mark> in GCS so you can reprocess.</li><li>Idempotent pipelines make replays safe.</li></ul>`}
+ ],
+ keys:["Oops in BigQuery → time travel","Replay messages → Pub/Sub seek","Keep raw data + idempotent pipelines = safe reprocessing"]}
+];
+
+PDE.tools.recover = {title:"Recovery Picker",sub:"Something broke: what's the fastest correct fix?",
+ intro:"Failure questions are about matching the failure to the right recovery tool. Pick what happened.",
+ nodes:{
+  start:{q:"What went wrong?",opts:[["Data was deleted or overwritten by mistake","oops"],["A zone or region went down","outage"],["A bad deploy processed messages wrongly","replay"],["Corrupt or invalid records arrived","bad"],["Jobs fail with quota / rate-limit errors","quota"]]},
+  oops:{q:"Where?",opts:[["BigQuery table (within the last 7 days)","bqtt"],["BigQuery table (older than time travel)","bqsnap"],["Cloud Storage object","gcsv"],["Cloud SQL rows","sqlpitr"]]},
+  bqtt:{result:"BigQuery time travel",why:"Query or restore the table FOR SYSTEM_TIME AS OF a point before the mistake (up to 7 days). Dropped tables can be recovered too.",keys:"undo, accidental delete, bad UPDATE",color:"#16a34a"},
+  bqsnap:{result:"Restore from a table snapshot (or fail-safe via support)",why:"Snapshots you scheduled keep point-in-time copies as long as you want. Fail-safe is only a short window beyond time travel.",trap:"No snapshots? That's why you schedule them for long-term needs.",color:"#16a34a"},
+  gcsv:{result:"Object versioning / soft delete",why:"Restore the previous version, or undelete within the soft-delete window.",color:"#16a34a"},
+  sqlpitr:{result:"Cloud SQL point-in-time recovery to a clone",why:"Restore to just before the mistake in a clone, then copy the rows back.",color:"#16a34a"},
+  outage:{q:"Which service must survive?",opts:[["Cloud SQL","sqlha"],["Bigtable","bthA"],["BigQuery","bqdr"],["Cloud Storage","gcsdr"],["Dataproc job","dpdr"]]},
+  sqlha:{result:"HA for zones · cross-region replica for regions",why:"A regional HA instance fails over across zones. For a region loss, promote a cross-region read replica.",color:"#0891b2"},
+  bthA:{result:"Replication + multi-cluster routing",why:"Clusters in multiple zones/regions with automatic failover through the app profile.",color:"#0891b2"},
+  bqdr:{result:"Multi-region datasets / cross-region replication (managed DR)",why:"Keep a replica in another region and fail over (managed disaster recovery in Enterprise Plus).",color:"#0891b2"},
+  gcsdr:{result:"Dual-/multi-region bucket (turbo replication for a 15-min RPO)",why:"Objects are replicated across regions automatically.",color:"#0891b2"},
+  dpdr:{result:"Recreate the cluster and rerun (data lives in GCS)",why:"With storage separated, a cluster is disposable. Use HA mode (3 masters) for long-running clusters.",color:"#0891b2"},
+  replay:{result:"Pub/Sub seek to a snapshot or timestamp",why:"Rewind the subscription and reprocess with the fixed code. Take a snapshot before risky deploys.",keys:"reprocess, replay, bad subscriber",color:"#db2777"},
+  bad:{result:"Dead-letter outputs + reprocess from raw",why:"Send failing records aside (Dataflow tagged output / Pub/Sub DLQ), fix them, and reprocess from the immutable raw copy in GCS. Keep pipelines idempotent.",trap:"max_bad_records silently drops data, so it's rarely the best answer.",color:"#db2777"},
+  quota:{result:"Exponential backoff (then request a quota increase)",why:"Retry with increasing waits plus jitter. If you're sustainably above the limit, request more quota or redesign (batching).",color:"#4f46e5"}
+ }};
+
+const Q=(id,topic,q,opts,ans,tip,mock)=>({id,d:"d5",topic,q,opts:opts.map(([t,w])=>({t,w})),ans:Array.isArray(ans)?ans:[ans],tip,mock:!!mock});
+PDE.questions.push(
+Q("d5q01","BigQuery cost","Nightly ETL queries in BigQuery consume most of the slots, and the executive dashboards are slow every morning. Both run in the same organization using capacity pricing. What should you do?",[
+ ["Create separate reservations for ETL and BI and assign each project to its reservation","Correct. Workload isolation guarantees the dashboards their capacity."],
+ ["Ask ETL owners to run earlier","Fragile, and it doesn't isolate anything."],
+ ["Switch dashboards to on-demand billing","Doesn't guarantee capacity, and costs become unpredictable."],
+ ["Add LIMIT to ETL queries","Doesn't reduce slot usage meaningfully."]],0,"Isolate workloads → separate reservations + assignments."),
+Q("d5q02","BigQuery cost","A team has a steady 24/7 BigQuery workload and short daily peaks. What capacity setup is most cost-efficient?",[
+ ["A reservation with a baseline sized for the steady load plus autoscaling for the peaks (and a commitment for the baseline)","Correct. Pay steadily for the base and only for peak bursts."],
+ ["A baseline sized for the peak, 24/7","Pays for idle capacity most of the day."],
+ ["On-demand only","Unpredictable, and often costlier for steady heavy use."],
+ ["Turn off queries during peaks","Not a business solution."]],0,"Steady + peaks → baseline + autoscaling (+ commitment)."),
+Q("d5q03","BigQuery cost","A new analyst accidentally ran queries that scanned 400 TB in one day. You want a hard daily limit per user going forward. What should you configure?",[
+ ["Custom quotas (query usage per user per day)","Correct. Hard caps on bytes scanned per user or project per day."],
+ ["Budget alerts only","Alerts notify you, they don't stop queries."],
+ ["Table expiration","Unrelated."],
+ ["Batch priority","Doesn't limit bytes."]],0,"Hard limit on scanning → custom quotas (+ maximum bytes billed per query)."),
+Q("d5q04","BigQuery cost","Before running a complex new query on production tables, an analyst wants to know how many bytes it will scan, for free. What should they do?",[
+ ["Run it with LIMIT 1","Still scans the same bytes."],
+ ["Perform a dry run","Correct. A dry run estimates bytes processed without running or billing."],
+ ["Run it on a copy","Copying costs money."],
+ ["Check INFORMATION_SCHEMA after running","Too late."]],1,"Estimate before running → dry run."),
+Q("d5q05","Cost","Leadership wants a monthly view of cloud spend broken down by team and pipeline. What should you set up?",[
+ ["Labels on resources and jobs, plus Cloud Billing export to BigQuery","Correct. Labels attribute costs, and the export makes them queryable."],
+ ["Ask teams for monthly estimates","Not accurate."],
+ ["Separate billing accounts per person","Unmanageable."],
+ ["Audit logs only","Show actions, not costs."]],0,"Cost attribution → labels + billing export."),
+Q("d5q06","Cost","A Dataflow batch job runs every Sunday. It isn't time-sensitive as long as it finishes the same day. What reduces its cost with no code change?",[
+ ["FlexRS","Correct. Flexible Resource Scheduling uses discounted capacity with delayed start."],
+ ["Streaming Engine","For streaming."],
+ ["Bigger workers","Costs more."],
+ ["A Pub/Sub source","Irrelevant."]],0,"Flexible batch timing → FlexRS."),
+Q("d5q07","Cost","A Dataproc cluster runs constantly for a data science team that uses Jupyter notebooks interactively all day, every day. Is an ephemeral cluster per job the right choice here?",[
+ ["Yes, always use ephemeral clusters","Not for constant interactive use."],
+ ["No. For constant interactive use, a persistent (autoscaling) cluster can be appropriate; ephemeral fits batch jobs","Correct. Match the cluster lifecycle to the usage pattern."],
+ ["Use Dataflow instead","Not a notebook Spark environment."],
+ ["Turn the cluster off at noon","Disrupts users."]],1,"Persistent vs ephemeral → depends on usage pattern."),
+Q("d5q08","Automation","A Composer DAG loads daily data into BigQuery. You need to reprocess the last 60 days after a logic fix. What makes this easy and safe?",[
+ ["Write each task to overwrite its own date partition, parameterized by the run's logical date, then trigger a backfill","Correct. Idempotent, date-parameterized tasks make backfills safe."],
+ ["Delete the table and rerun today's DAG","Only reloads today."],
+ ["Run the DAG 60 times manually with today's date","All runs would process the same date."],
+ ["Append results and dedupe later","Error-prone."]],0,"Backfills → idempotent + date-parameterized tasks."),
+Q("d5q09","Automation","A Composer DAG must start only after a partner's file arrives in Cloud Storage, which happens at a random time between 01:00 and 05:00. What should the first task be?",[
+ ["A GCS object sensor that waits for the file","Correct. Sensors wait for external conditions."],
+ ["A fixed sleep of 4 hours","Wasteful and fragile."],
+ ["A BashOperator that lists the bucket once","Fails if the file is late."],
+ ["Cloud Scheduler at 05:00","Delays processing unnecessarily."]],0,"Wait for a condition → sensor."),
+Q("d5q10","Automation","Your Composer environment shows many tasks waiting in the queued state for minutes during the nightly peak, although DAGs are correct and dependencies are met. What should you do?",[
+ ["Scale out workers and raise concurrency/parallelism settings","Correct. Queued tasks mean there isn't enough execution capacity."],
+ ["Rewrite all DAGs","DAGs aren't the issue."],
+ ["Reduce retries","Unrelated."],
+ ["Move DAG files to another folder","Unrelated."]],0,"Queued tasks → more workers/concurrency."),
+Q("d5q11","Workloads","Monthly finance reports in BigQuery aren't urgent and can run any time overnight. They currently compete with interactive analyst queries. Which TWO changes help?",[
+ ["Run the reports with batch priority","Correct. They wait for free capacity and don't block interactive work."],
+ ["Put the reports in a separate reservation (or project) with its own capacity","Correct. Workload isolation."],
+ ["Add LIMIT to the reports","Doesn't change resource use."],
+ ["Disable the query cache","Makes things worse."]],[0,1],"Non-urgent work → batch priority and/or isolation."),
+Q("d5q12","Monitoring","You need to be alerted when a streaming Dataflow pipeline falls more than 5 minutes behind. What should you configure?",[
+ ["A Cloud Monitoring alerting policy on the job's system lag / data freshness metric","Correct. The metric directly measures how far behind the pipeline is."],
+ ["A daily email from the team lead","Not automated."],
+ ["An alert on CPU utilization","Indirect, and it misses I/O-bound lag."],
+ ["Audit logs","Don't show lag."]],0,"Pipeline behind → alert on system lag / data freshness."),
+Q("d5q13","Monitoring","You need to alert whenever a specific error message (\"SchemaMismatch\") appears in your pipeline's logs. What should you do?",[
+ ["Create a log-based metric for that message and an alerting policy on it","Correct. Turns log patterns into alertable metrics."],
+ ["Read the logs manually each morning","Not automated."],
+ ["Increase the log retention","Doesn't alert."],
+ ["Enable Data Access logs","Unrelated."]],0,"Alert on log text → log-based metric."),
+Q("d5q14","Monitoring","Security wants all Cloud Logging entries from data projects kept for 5 years and analysable with SQL. What should you set up?",[
+ ["A log sink routing logs to a BigQuery dataset (and/or GCS for cheap archive) with the required retention","Correct. Sinks export logs for analysis and long retention."],
+ ["Rely on default log retention","Too short."],
+ ["Copy logs manually","Not reliable."],
+ ["Pub/Sub only","Streams logs but doesn't store them for analysis."]],0,"Long retention + SQL → log sink to BigQuery."),
+Q("d5q15","Troubleshooting","A client library loading data into BigQuery intermittently fails with rateLimitExceeded errors. What should the code do?",[
+ ["Retry immediately in a tight loop","Makes rate limiting worse."],
+ ["Retry with exponential backoff (and jitter)","Correct. Back off progressively, then request a quota increase if it's sustained."],
+ ["Give up and alert","Transient errors should be retried."],
+ ["Switch to a new project per request","An anti-pattern."]],1,"Rate/quota errors → exponential backoff."),
+Q("d5q16","Troubleshooting","A scheduled Dataflow job fails with \"permission denied\" writing to BigQuery, although the engineer who created it has BigQuery Admin. What's the most likely cause?",[
+ ["BigQuery is down","Unlikely, and the message points to IAM."],
+ ["The job's worker service account lacks write permission on the dataset","Correct. Jobs run as their service account, not as the creator."],
+ ["The engineer needs Owner","The engineer's roles don't apply to the job."],
+ ["The table is partitioned","Unrelated."]],1,"Job permission errors → check the job's service account."),
+Q("d5q17","Troubleshooting","A BigQuery query fails with \"Resources exceeded during query execution\" while sorting a 2-billion-row result with ORDER BY and no LIMIT. What should you do?",[
+ ["Add LIMIT (or remove the global ORDER BY), and filter or aggregate earlier","Correct. A global sort of a huge result runs on a single stage and exhausts resources."],
+ ["Buy more storage","Unrelated."],
+ ["Enable BI Engine","Unrelated."],
+ ["Disable the cache","Unrelated."]],0,"Resources exceeded → reduce data / avoid huge global sorts."),
+Q("d5q18","Failure","An engineer ran DELETE without a WHERE clause on a production BigQuery table 3 hours ago. What's the fastest recovery with no data loss?",[
+ ["Restore with time travel: CREATE OR REPLACE TABLE … AS SELECT * FROM table FOR SYSTEM_TIME AS OF (before the delete)","Correct. Time travel covers up to 7 days."],
+ ["Reload all sources for the last 5 years","Slow."],
+ ["Open a fail-safe ticket","Only needed after the time-travel window."],
+ ["Restore last month's export","Loses a month of data."]],0,"Recent mistake in BigQuery → time travel."),
+Q("d5q19","Failure","A dashboard backed by BigQuery is business-critical and must keep working within minutes if its region has an outage. Which approach fits?",[
+ ["Cross-region dataset replication with managed disaster recovery and failover reservations","Correct. A replica in another region that you can promote quickly."],
+ ["Weekly exports to GCS","RTO too long."],
+ ["Time travel","Doesn't protect against a region outage."],
+ ["More slots in the same region","Same region, same outage."]],0,"Region-level BigQuery DR → cross-region replication / managed DR."),
+Q("d5q20","Failure","A new subscriber version mis-processed Pub/Sub messages for the last 4 hours. The subscription retains acknowledged messages for 7 days. How do you reprocess them?",[
+ ["Seek the subscription to a timestamp 4 hours ago after deploying the fix","Correct. Replays messages from that point."],
+ ["Ask publishers to resend","Not reliable."],
+ ["Create a new topic","Doesn't recover old messages."],
+ ["Increase the ack deadline","Unrelated."]],0,"Reprocess messages → seek to a timestamp/snapshot."),
+Q("d5q21","Failure","Occasionally upstream systems send malformed records that crash a streaming pipeline. The business wants valid data to keep flowing and bad data fixed later. What's the best design?",[
+ ["Route invalid records to a dead-letter output (table/bucket), alert on its volume, and reprocess after fixing","Correct. Isolate failures without stopping the stream."],
+ ["Fail the pipeline so someone notices","Stops everything."],
+ ["Silently drop bad records","Loses data."],
+ ["Set max_bad_records","Only for load jobs, and it drops data silently."]],0,"Bad records → dead-letter + reprocess."),
+Q("d5q22","Failure","A nightly pipeline overwrote a curated table with corrupted transformations, and the bug was found 10 days later. Raw source files are kept in Cloud Storage. What's the most reliable recovery?",[
+ ["Time travel","10 days is beyond the time-travel window."],
+ ["Fix the code and reprocess the affected days from the immutable raw files, using idempotent writes","Correct. Raw immutable data plus idempotent pipelines make full recovery possible."],
+ ["Ask analysts to ignore the bad data","Not acceptable."],
+ ["Restore from the BI tool cache","Not a source of truth."]],1,"Beyond time travel → reprocess from raw (keep raw data!)."),
+Q("d5q23","Failure","A long-running Dataproc cluster used for streaming Spark jobs must survive a master node failure. What should you enable?",[
+ ["High-availability mode (3 masters)","Correct."],
+ ["More secondary workers","Doesn't replace the master."],
+ ["Spot masters","Increases risk."],
+ ["Scheduled deletion","Deletes the cluster."]],0,"Dataproc master resilience → HA mode."),
+Q("d5q24","Quotas","A pipeline hits the per-project Pub/Sub publish throughput quota during seasonal peaks, and backoff isn't enough. What's the right next step?",[
+ ["Request a quota increase (and batch publishes to use quota efficiently)","Correct. For a sustained legitimate need, raise the quota and publish efficiently."],
+ ["Spread publishes across random personal projects","An anti-pattern."],
+ ["Drop messages above the limit","Data loss."],
+ ["Switch to Pub/Sub Lite","Shut down."]],0,"Sustained quota need → batching + quota increase."),
+
+/* mock-only */
+Q("d5m01","BigQuery cost","Which statement about BigQuery pricing today is correct?",[
+ ["Flat-rate pricing is the recommended capacity model","Flat-rate has been retired."],
+ ["Capacity pricing uses BigQuery Editions with reservations, baselines, autoscaling and optional commitments","Correct."],
+ ["On-demand pricing charges per query regardless of size","On-demand charges per bytes processed."],
+ ["Batch loads are billed per TiB","Batch loads use a free shared pool."]],1,null,true),
+Q("d5m02","Cost","A team wants to make sure a single runaway query can never bill more than 10 TB. What should they set?",[
+ ["maximum_bytes_billed on queries (via job config or tool defaults)","Correct. The query fails instead of exceeding the limit."],
+ ["Batch priority","Doesn't limit bytes."],
+ ["Partition expiration","Unrelated."],
+ ["BI Engine","Unrelated."]],0,null,true),
+Q("d5m03","Monitoring","Which source gives you every BigQuery job's user, bytes billed and slot usage for the last 180 days, queryable with SQL?",[
+ ["INFORMATION_SCHEMA.JOBS","Correct."],
+ ["Cloud Trace","For request latency."],
+ ["Error Reporting","For exceptions."],
+ ["Data Catalog","For metadata, not job history."]],0,null,true),
+Q("d5m04","Automation","Which practice makes a daily pipeline safe to retry automatically without creating duplicates?",[
+ ["Appending results on every run","Duplicates on retry."],
+ ["Writing each run's output to its own date partition with overwrite (or MERGE on keys)","Correct. Idempotent writes."],
+ ["Disabling retries","Fails more often."],
+ ["Using random table names","Hard to consume."]],1,null,true),
+Q("d5m05","Workloads","A data science team's huge exploratory queries keep slowing down production ETL in a shared reservation. What's the cleanest fix?",[
+ ["Give data science its own reservation (or on-demand project) and assign their project to it","Correct. Workload isolation."],
+ ["Ask them to query less","Not enforceable."],
+ ["Move ETL to Cloud SQL","Wrong tool."],
+ ["Add LIMIT","Doesn't reduce resource use."]],0,null,true),
+Q("d5m06","Troubleshooting","An API that your Cloud Run service calls returns HTTP 429 during bursts. What should the client implement?",[
+ ["Exponential backoff with jitter on retries","Correct."],
+ ["Immediate infinite retries","Worsens the overload."],
+ ["Ignore the errors","Data loss."],
+ ["Larger request payloads","Doesn't address the rate limit."]],0,null,true),
+Q("d5m07","Failure","Which design choice best enables recovery from a transformation bug discovered weeks later?",[
+ ["Keep immutable raw input data in Cloud Storage and make pipelines idempotent so you can reprocess","Correct."],
+ ["Rely on BigQuery time travel only","Time travel only covers up to 7 days."],
+ ["Delete raw data after loading to save cost","Removes the ability to reprocess."],
+ ["Rely on dashboards' cache","Not a source of truth."]],0,null,true),
+Q("d5m08","Failure","A Cloud SQL instance must survive a zone failure with automatic failover. What should you enable?",[
+ ["High availability (regional instance with a standby)","Correct. Automatic failover across zones."],
+ ["A read replica in the same zone","No automatic failover, and it's in the same zone."],
+ ["Point-in-time recovery only","Restores data, but with downtime."],
+ ["Larger disks","Unrelated."]],0,null,true),
+Q("d5m09","Monitoring","You want to be paged if Pub/Sub messages wait more than 10 minutes without being processed. Which metric should the alert use?",[
+ ["subscription/oldest_unacked_message_age","Correct."],
+ ["topic/send_request_count","Measures publishing, not consumer delay."],
+ ["BigQuery slot usage","Unrelated."],
+ ["CPU of the publisher","Unrelated."]],0,null,true),
+Q("d5m10","Cost","Which TWO actions lower Cloud Storage costs for logs that are read heavily in the first week and almost never afterwards?",[
+ ["A lifecycle rule that moves objects to Coldline or Archive after 30 days","Correct."],
+ ["A lifecycle rule that deletes objects after the retention requirement","Correct."],
+ ["Turning on object versioning","Increases storage."],
+ ["Using a multi-region bucket instead of a regional one","Usually costs more."]],[0,1],null,true),
+Q("d5m11","Automation","Which statement about Cloud Composer is correct?",[
+ ["It's a managed Apache Airflow service; DAGs are Python files in the environment's bucket","Correct."],
+ ["It's a SQL transformation tool","That's Dataform."],
+ ["It replaces Pub/Sub","It orchestrates, it doesn't do messaging."],
+ ["DAGs are written in YAML","That's Workflows."]],0,null,true),
+Q("d5m12","Failure","A streaming Dataflow job in us-central1 must be relocated because the region has a prolonged outage. Pub/Sub is global. What's the most practical approach?",[
+ ["Launch the same pipeline (e.g. from its Flex Template) in another region, reading from the same subscription","Correct. Pub/Sub retains unacked messages, so the new job picks up where processing stopped."],
+ ["Wait for the region to recover with no plan","Violates availability needs."],
+ ["Recreate all Pub/Sub topics","Unnecessary, Pub/Sub is global."],
+ ["Switch to batch loads from GCS","Not equivalent."]],0,null,true)
+);
+
+PDE.flash.push(
+ {id:"f5-01",d:"d5",f:"Predictable BigQuery compute spend",b:"Editions reservations (baseline + autoscaling)"},
+ {id:"f5-02",d:"d5",f:"Flat-rate pricing today",b:"Retired → BigQuery Editions"},
+ {id:"f5-03",d:"d5",f:"ETL slows down dashboards",b:"Separate reservations + assignments"},
+ {id:"f5-04",d:"d5",f:"Hard daily cap on bytes per user",b:"Custom quotas"},
+ {id:"f5-05",d:"d5",f:"Cap one query's cost",b:"maximum bytes billed"},
+ {id:"f5-06",d:"d5",f:"Estimate bytes before running",b:"Dry run"},
+ {id:"f5-07",d:"d5",f:"Spend by team / pipeline",b:"Labels + billing export to BigQuery"},
+ {id:"f5-08",d:"d5",f:"Non-urgent BigQuery queries",b:"Batch priority"},
+ {id:"f5-09",d:"d5",f:"Safe DAG reruns and backfills",b:"Idempotent, date-parameterized tasks"},
+ {id:"f5-10",d:"d5",f:"Wait for a partner file in GCS",b:"Airflow sensor"},
+ {id:"f5-11",d:"d5",f:"Composer tasks stuck queued",b:"Scale workers / concurrency"},
+ {id:"f5-12",d:"d5",f:"Pipeline falling behind alert",b:"Alert on system lag / data freshness"},
+ {id:"f5-13",d:"d5",f:"Alert on a specific log message",b:"Log-based metric + alert"},
+ {id:"f5-14",d:"d5",f:"Keep logs 5 years, query with SQL",b:"Log sink → BigQuery"},
+ {id:"f5-15",d:"d5",f:"Who ran the expensive queries?",b:"INFORMATION_SCHEMA.JOBS"},
+ {id:"f5-16",d:"d5",f:"429 / rateLimitExceeded",b:"Exponential backoff"},
+ {id:"f5-17",d:"d5",f:"Job says permission denied",b:"Check the job's service account"},
+ {id:"f5-18",d:"d5",f:"Resources exceeded on huge ORDER BY",b:"Add LIMIT / reduce data earlier"},
+ {id:"f5-19",d:"d5",f:"Bad DELETE 3 hours ago in BigQuery",b:"Time travel"},
+ {id:"f5-20",d:"d5",f:"Bug found 10 days later",b:"Reprocess from immutable raw data",x:"Beyond time travel."},
+ {id:"f5-21",d:"d5",f:"Reprocess last 4 hours of messages",b:"Pub/Sub seek to timestamp"},
+ {id:"f5-22",d:"d5",f:"Cloud SQL zone failure",b:"HA (regional standby)",x:"Region failure → cross-region replica."},
+ {id:"f5-23",d:"d5",f:"Dataproc master failure",b:"HA mode (3 masters)"}
+);
+PDE.mocks.splice(4,0,{id:"mini-d5",title:"Mini mock · Maintaining",n:10,min:15,domains:["d5"],lockText:"Needs 10 mock questions"});
+})();
+
+(function(){
 PDE.guides = PDE.guides || {};
 const S=(t,inti,cases,istilah,ingat)=>({t,inti,cases,istilah,ingat});
 
@@ -1866,10 +2500,21 @@ function vPractice(){
   <a class="tile" href="#flash"><div class="ic" style="background:#0f766e">FC</div><div class="tx"><b>Flashcards</b><small class="muted">${dueCards().length} due · spaced repetition</small></div><span class="chev">›</span></a>
   ${Object.keys(D.tools).map(t=>`<a class="tile" href="#tool-${t}"><div class="ic" style="background:#0f766e">⚙</div><div class="tx"><b>${D.tools[t].title}</b><small class="muted">${D.tools[t].sub}</small></div><span class="chev">›</span></a>`).join("")}
   <div class="sec">Exam simulation</div>
-  ${D.mocks.map(m=>{const ok=mockAvail(m);return `<a class="tile ${ok?"":"locked"}" href="${ok?"#mockintro-"+m.id:"#practice"}"><div class="ic" style="background:#171a26">M</div><div class="tx"><b>${m.title}</b><small class="muted">${ok?`${m.n} questions · ${m.min} min · no hints until the end`:m.lockText}</small></div><span class="chev">${ok?"›":"🔒"}</span></a>`}).join("")}
+  ${D.mocks.map(m=>{const ok=mockAvail(m);return `<a class="tile ${ok?"":"locked"}" href="${ok?"#mockintro-"+m.id:"#practice"}"><div class="ic" style="background:#171a26">M</div><div class="tx"><b>${m.title}</b><small class="muted">${ok?`${m.n} questions · ${m.min} min${m.desc?" · "+m.desc:" · no hints until the end"}`:m.lockText}</small></div><span class="chev">${ok?"›":"🔒"}</span></a>`}).join("")}
   `,"practice");
 }
-function mockAvail(m){return mockPool().filter(q=>!m.domains||m.domains.includes(q.d)).length>=m.n;}
+function mockAvail(m){
+  if(m.weights) return Object.keys(m.weights).every(d=>dom(d).ready && srcPool(m,d).length>=m.weights[d]);
+  return mockPool().filter(q=>!m.domains||m.domains.includes(q.d)).length>=m.n;}
+function srcPool(m,d){return D.questions.filter(q=>q.d===d&&(m.source==="mock"?q.mock:true));}
+function pickMock(m){
+  if(!m.weights){return shuffle(mockPool().filter(q=>!m.domains||m.domains.includes(q.d))).slice(0,m.n);}
+  let out=[];
+  Object.keys(m.weights).forEach(d=>{let pool=shuffle(srcPool(m,d));
+    if(m.source==="adaptive"){const rank=q=>{const r=S.quiz[q.id];if(!r)return 0;if(!r.last)return 1;return 2;};pool.sort((a,b)=>rank(a)-rank(b));}
+    out=out.concat(pool.slice(0,m.weights[d]));});
+  return shuffle(out);
+}
 
 /* daily */
 function vDaily(){const pool=D.questions.filter(q=>!q.mock&&dom(q.d).ready);startQuiz(shuffle(pool).slice(0,10),"Daily 10","home");}
@@ -1995,8 +2640,7 @@ function vMockIntro(id){
 }
 function mockStart(id){
   const m=D.mocks.find(x=>x.id===id);
-  const pool=mockPool().filter(q=>!m.domains||m.domains.includes(q.d));
-  M={id,list:shuffle(pool).slice(0,m.n).map(q=>q.id),i:0,ans:{},flag:{},end:Date.now()+m.min*60000,title:m.title,submitted:false};
+  M={id,list:pickMock(m).map(q=>q.id),i:0,ans:{},flag:{},end:Date.now()+m.min*60000,title:m.title,submitted:false};
   try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}
   vMock();
 }
@@ -2035,6 +2679,7 @@ function vMockResult(){
   render(`${top("Results","practice")}
   <div class="card" style="text-align:center;background:${pass?"var(--goodl)":"var(--badl)"}"><div style="font-size:54px;font-weight:800">${M.pct}%</div><p><b>${M.score}/${M.list.length}</b> correct · ${pass?"Likely pass zone (≈70%+)":"Below the ≈70% pass zone"}</p></div>
   <div class="card"><b>By domain</b>${Object.keys(M.by).map(d=>{const x=M.by[d];const p=Math.round(x.ok/x.n*100);return `<div style="margin:8px 0"><div class="row"><span style="flex:1;font-size:14px">${dom(d).n}. ${dom(d).short}</span><small>${x.ok}/${x.n}</small></div><div class="bar"><i style="width:${p}%;background:${dom(d).color}"></i></div></div>`}).join("")}</div>
+  ${M.list.length>=40?`<div class="box brain"><div class="l">What next</div>${Object.keys(M.by).filter(d=>M.by[d].ok/M.by[d].n<0.7).map(d=>dom(d).short).join(", ")?`Below 70% in: <b>${Object.keys(M.by).filter(d=>M.by[d].ok/M.by[d].n<0.7).map(d=>dom(d).short).join(", ")}</b>. Re-read those chapters in <b>Read</b>, retry the Mistakes notebook, then take the adaptive mock.`:"Every domain is at 70%+. Keep doing flashcards daily and take another mock in 2 days."}</div>`:""}
   <div class="sec">Review every question</div>
   ${M.list.map((id,i)=>{const q=qById(id);const mine=M.ans[id]||[];const c=same(mine,q.ans);
     return `<details class="card"><summary><b style="color:${c?"var(--good)":"var(--bad)"}">${c?"✓":"✕"} Q${i+1}</b> <span class="muted">${q.topic}</span></summary><div class="qstem" style="margin-top:10px">${q.q}</div>
