@@ -122,9 +122,9 @@ textarea{min-height:110px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:#171a26;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:30}
 
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
-</head><body><div id="app"></div>
+</head><body><div id="app"></div><script>window.PDE_PDF=true</script>
 <script>window.PDE = {
-version: "1.1",
+version: "1.2",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -1016,6 +1016,672 @@ PDE.flash.push(
 PDE.mocks.splice(1,0,{id:"mini-d2",title:"Mini mock · Ingesting & processing",n:10,min:15,domains:["d2"],lockText:"Needs 10 mock questions"});
 })();
 
+(function(){
+const d1 = PDE.domains.find(d=>d.id==="d1");
+d1.ready = true;
+d1.tools = ["protect","transfer"];
+d1.lessons = [
+{id:"d1-l1",title:"IAM the Google way",mins:5,
+ opener:{q:"Analysts must query tables in the finance dataset but must not change them. What's the least-privilege setup?",
+  opts:["Project Editor for each analyst","bigquery.dataViewer on the dataset + bigquery.jobUser on the project, granted to an analysts group","bigquery.admin on the dataset","bigquery.dataOwner on the project"],ans:1,
+  why:"Reading tables (dataViewer) and running queries (jobUser) are separate permissions. Grant both at the smallest scope, to a group, not to individuals."},
+ cards:[
+  {h:"Hierarchy & inheritance",b:`<ul><li><b>Organization → Folders → Projects → Resources</b>. Permissions are <mark>inherited downward</mark>. A child can't remove what a parent granted.</li><li>Principals: Google accounts, <mark>Google Groups (preferred)</mark>, <b>service accounts</b> (apps), Workload Identity Federation (external workloads, no keys).</li><li>Roles: <b>basic</b> (Owner/Editor/Viewer, avoid) · <mark>predefined</mark> (default choice) · custom (only if no predefined role fits).</li></ul>`},
+  {h:"BigQuery roles to know",b:`<table><tr><th>Role</th><th>Use</th></tr><tr><td>dataViewer</td><td>Read tables</td></tr><tr><td>dataEditor</td><td>Read + write data (pipelines)</td></tr><tr><td>dataOwner</td><td>Manage dataset access</td></tr><tr><td><mark>jobUser</mark></td><td>Run queries in a project</td></tr><tr><td>user</td><td>Run jobs + create datasets</td></tr><tr><td>admin</td><td>Almost never the answer</td></tr></table><div class="box trap"><div class="l">Old fact</div>"BigQuery has no table-level security" is outdated. There's table IAM, row-level policies, column policy tags and masking.</div>`},
+  {h:"Service accounts & org policies",b:`<ul><li>One service account per pipeline, least privilege, avoid downloaded keys.</li><li><code>iam.serviceAccountUser</code> only for people who must run jobs as that SA.</li><li><mark>Organization policies</mark> are guardrails: <code>gcp.resourceLocations</code> (data residency), disable SA key creation, restrict public IPs.</li></ul>`}
+ ],
+ keys:["Predefined roles → groups/service accounts → smallest scope","Analyst = dataViewer + jobUser","Residency guardrail → resource locations org policy"]},
+
+{id:"d1-l2",title:"Encryption & key management",mins:4,
+ opener:{q:"Compliance says the company must be able to revoke Google's ability to decrypt its BigQuery data at any time. What should you use?",
+  opts:["Default Google-managed encryption","CMEK with Cloud KMS","CSEK","Client-side encryption only"],ans:1,
+  why:"With CMEK you control the key in Cloud KMS. Disabling or destroying it makes the data unreadable. CSEK isn't supported by BigQuery, and client-side encryption would break BigQuery queries."},
+ cards:[
+  {h:"Who holds the key?",b:`<table><tr><th>Option</th><th>Pick when</th></tr><tr><td>Google-managed</td><td>Default, nothing special required</td></tr><tr><td><mark>CMEK (Cloud KMS)</mark></td><td>"Control rotation", "revoke access", "we must manage keys"</td></tr><tr><td>Cloud HSM</td><td>Hardware-backed keys (FIPS 140-2 L3)</td></tr><tr><td><mark>Cloud EKM</mark></td><td>Keys must stay outside Google</td></tr><tr><td>CSEK</td><td>Only GCS + Compute Engine disks</td></tr><tr><td>Client-side</td><td>Google must never see plaintext</td></tr></table>`},
+  {h:"Crypto-shredding",b:`<p>Destroy or disable a CMEK key, and everything encrypted with it becomes unreadable. Useful for "delete all data for this customer/tenant" when you use a key per tenant.</p><div class="box trap"><div class="l">Trap</div><mark>CSEK is not supported in BigQuery.</mark> Any answer combining the two is wrong.</div>`}
+ ],
+ keys:["Control/revoke keys → CMEK","Keys outside Google → EKM","CSEK only for GCS/GCE"]},
+
+{id:"d1-l3",title:"PII & Sensitive Data Protection",mins:5,
+ opener:{q:"Analysts must join two tables on email address, but must never see real emails. Which de-identification technique?",
+  opts:["Redact emails","Deterministic encryption / tokenization with Sensitive Data Protection (DLP)","Replace emails with random UUIDs per row","Bucketing"],ans:1,
+  why:"Deterministic tokenization maps the same email to the same token in both tables, so joins still work. It's also reversible with the key. Redaction and random values break joins."},
+ cards:[
+  {h:"What DLP does",b:`<ul><li><b>Inspect</b>: finds 150+ infoTypes (cards, emails, IDs, custom regex) in BigQuery, GCS, Datastore, or streams via the API.</li><li><b>De-identify</b>, then <b>risk analysis</b> (k-anonymity, l-diversity).</li><li>Typical flow: raw → staging bucket → DLP/Dataflow de-identify → BigQuery.</li></ul>`},
+  {h:"Pick the right technique",b:`<table><tr><th>Technique</th><th>Joinable?</th><th>Reversible?</th></tr><tr><td>Redaction / masking</td><td>No</td><td>No</td></tr><tr><td><mark>Deterministic encryption / FPE (tokenization)</mark></td><td>Yes</td><td>Yes (with key)</td></tr><tr><td>Crypto hash</td><td>Yes</td><td>No</td></tr><tr><td>Bucketing / date shifting</td><td>Partly</td><td>No</td></tr></table><p>Try the <b>Protect-the-data Picker</b> tool in this domain.</p>`}
+ ],
+ keys:["Join without exposing → deterministic tokenization / FPE","Irreversible display masking → redaction/masking","Measure re-identification risk → DLP risk analysis"]},
+
+{id:"d1-l4",title:"Perimeters, networks & audit",mins:4,
+ opener:{q:"Even with strict IAM, the CISO worries that stolen credentials could be used to copy BigQuery data to a personal project. What prevents this?",
+  opts:["Stronger passwords","VPC Service Controls perimeter around the projects","CMEK","Removing the dataViewer role from everyone"],ans:1,
+  why:"VPC Service Controls blocks data from leaving the perimeter even when the request has valid credentials. IAM alone can't stop someone who holds stolen credentials."},
+ cards:[
+  {h:"Network controls",b:`<ul><li><mark>VPC Service Controls</mark>: perimeter that stops exfiltration via Google APIs.</li><li><b>Private Google Access</b>: VMs without public IPs reach Google APIs.</li><li><b>Private Service Connect</b>: private endpoints for services.</li></ul>`},
+  {h:"Audit & environments",b:`<ul><li>Audit logs: <b>Admin Activity</b> (always on) · <b>Data Access</b> (off by default for most services, <mark>on by default for BigQuery</mark>) · System Event · Policy Denied.</li><li>"Who read this table?" → Data Access logs, exported to BigQuery with a log sink.</li><li><mark>Separate projects for dev / test / prod.</mark></li><li>Dataset location is fixed at creation. Residency = choose the region + enforce it with an org policy.</li></ul>`}
+ ],
+ keys:["Exfiltration with valid creds → VPC-SC","Who accessed data → Data Access audit logs","Environment isolation → separate projects"]},
+
+{id:"d1-l5",title:"Reliability, fidelity & DR",mins:4,
+ opener:{q:"A pipeline's RPO is 24 hours and RTO is 2 days. Budget is tight. Which DR approach fits?",
+  opts:["Spanner multi-region","Active-active in two regions","Scheduled backups/exports to another region","Cloud SQL HA only"],ans:2,
+  why:"Loose RPO/RTO → the cheapest option that meets them: backups or snapshots in another region. The others cost far more than needed, and HA alone doesn't cover a region loss."},
+ cards:[
+  {h:"Vocabulary",b:`<ul><li><mark>RPO</mark> = how much data you can lose. <mark>RTO</mark> = how long you can be down.</li><li>Lower RPO/RTO = more cost. Pick the cheapest option that meets the stated numbers.</li><li>Patterns: multi-region storage · cross-region replicas · replication with failover · backups to another region.</li></ul>`},
+  {h:"Fidelity (correct data)",b:`<ul><li><b>Dataform</b>: SQL transforms with <mark>assertions</mark> (tests) and dependencies.</li><li><b>Dataplex data quality scans</b>: rules + alerts.</li><li>Dead-letter outputs for bad records. Avoid <code>max_bad_records</code> as the "solution" (it silently drops rows).</li><li>Validate migrations with row counts and checksums, and run old and new in parallel.</li></ul>`}
+ ],
+ keys:["Cheapest DR that meets RPO/RTO","Data tests → Dataform assertions / Dataplex quality"]},
+
+{id:"d1-l6",title:"Portability & multicloud",mins:3,
+ opener:{q:"Iceberg tables in Cloud Storage must be queried by both BigQuery and Spark, with column-level security. What should you use?",
+  opts:["External CSV tables","BigLake tables","Copy the data into native BigQuery","Bigtable"],ans:1,
+  why:"BigLake provides governed tables over open formats like Iceberg, readable from BigQuery and Spark with fine-grained security."},
+ cards:[
+  {h:"Open & multicloud",b:`<ul><li><mark>BigQuery Omni</mark>: analytics on data in AWS/Azure without moving it.</li><li><mark>BigLake</mark>: open-format lakehouse tables (Parquet, ORC, Iceberg) with row/column security.</li><li>Portability: open formats, Beam (runs on Dataflow/Flink/Spark), containers.</li><li><b>Dataplex Universal Catalog</b>: discovery, metadata, profiling, lineage.</li></ul>`}
+ ],
+ keys:["Data in other clouds → Omni","Open formats + governance → BigLake"]},
+
+{id:"d1-l7",title:"Data migrations",mins:6,
+ opener:{q:"You must move 800 TB from an on-prem data center to Cloud Storage. The internet link is 200 Mbps and the project must finish within a month. What should you use?",
+  opts:["gcloud storage cp","Storage Transfer Service","Transfer Appliance","Datastream"],ans:2,
+  why:"800 TB at 200 Mbps takes about 400 days. Ship it physically with Transfer Appliance. Rule of thumb: 1 TB at 100 Mbps ≈ 1 day."},
+ cards:[
+  {h:"Pick the transfer tool",b:`<table><tr><th>Tool</th><th>When</th></tr><tr><td>gcloud storage</td><td>Small/medium copies (parallel)</td></tr><tr><td><mark>Storage Transfer Service</mark></td><td>Large, scheduled, S3/Azure/HTTP/on-prem (agents)</td></tr><tr><td><mark>Transfer Appliance</mark></td><td>Huge data + slow network (weeks or months online)</td></tr><tr><td><mark>BigQuery DTS</mark></td><td>Teradata/Redshift migration, SaaS (Ads, YouTube), scheduled queries</td></tr><tr><td><mark>Database Migration Service</mark></td><td>MySQL/Postgres/SQL Server/Oracle → Cloud SQL/AlloyDB, minimal downtime</td></tr><tr><td><mark>Datastream</mark></td><td>CDC → BigQuery/GCS, near real time</td></tr></table><p>Use the <b>Transfer Calculator</b> tool to practise the math.</p>`},
+  {h:"Network & playbook",b:`<ul><li><b>Cloud VPN</b>: quick, encrypted over the internet, moderate bandwidth. <b>Dedicated Interconnect</b>: private 10/100 Gbps. <b>Partner Interconnect</b>: via a provider.</li><li>Playbook: <b>assess → plan → migrate → validate → optimize</b>.</li><li>Lift &amp; shift: Hadoop → Dataproc · Kafka → Managed Kafka · HBase → Bigtable · Airflow → Composer · MySQL → Cloud SQL. Modernize: → BigQuery, Dataflow, Pub/Sub.</li></ul>`}
+ ],
+ keys:["1 TB @100 Mbps ≈ 1 day → too slow = Transfer Appliance","Warehouse → BigQuery DTS · DB → DMS · CDC → Datastream","Private high throughput → Interconnect"]}
+];
+
+PDE.tools.protect = {title:"Protect-the-data Picker",sub:"Which security control does the scenario need?",
+ intro:"Security questions are about picking the control that matches the threat. Answer as the scenario would.",
+ nodes:{
+  start:{q:"What's the main concern in the scenario?",opts:[["Who can access what (people/apps)","iam"],["Who holds the encryption keys","keys"],["Sensitive values (PII) inside the data","pii"],["Data leaving the company, even with valid credentials","vpcsc"],["Data must stay in a geography","resid"],["Proving who accessed data","audit"]]},
+  iam:{q:"Who needs access?",opts:[["Analysts who only query","iamA"],["A pipeline / application","iamSA"],["Different users see different rows or columns","fine"]]},
+  iamA:{result:"dataViewer + jobUser, to a Google Group",why:"Read on the dataset, run jobs in the project, smallest scope, managed through a group.",keys:"least privilege, analysts, query only",trap:"Basic roles (Editor/Owner) or bigquery.admin are almost never correct.",color:"#4f46e5"},
+  iamSA:{result:"Dedicated service account with a predefined role",why:"One service account per pipeline, e.g. dataEditor on the target dataset. Avoid downloaded keys (use attached SAs or Workload Identity Federation).",keys:"service account, least privilege",color:"#4f46e5"},
+  fine:{result:"Row-level policies / policy tags / authorized views",why:"Rows → row access policies. Columns → policy tags (+ dynamic masking). Share results only → authorized view.",keys:"fine-grained access",color:"#d97706"},
+  keys:{q:"What's the key requirement?",opts:[["We must control rotation and be able to revoke","cmek"],["Keys must live in hardware (HSM)","hsm"],["Keys must never be stored in Google","ekm"],["Google must never see plaintext","cse"]]},
+  cmek:{result:"CMEK (Cloud KMS)",why:"You manage the key, and disabling or destroying it makes the data unreadable (crypto-shredding).",keys:"control keys, rotate, revoke",trap:"CSEK isn't supported by BigQuery.",color:"#4f46e5"},
+  hsm:{result:"Cloud HSM (CMEK in hardware)",why:"Keys are kept in FIPS 140-2 Level 3 HSMs.",color:"#4f46e5"},
+  ekm:{result:"Cloud External Key Manager (EKM)",why:"Keys stay in an external key manager outside Google.",color:"#4f46e5"},
+  cse:{result:"Client-side encryption",why:"Encrypt before upload. Google only ever stores ciphertext.",trap:"BigQuery can't query data it can't decrypt.",color:"#4f46e5"},
+  pii:{q:"What must still be possible after protecting the values?",opts:[["Joins and counts on the protected column, and reversibility","tok"],["Nothing, just hide it for display","mask"],["Joins, but it must be one-way","hash"],["Keep the rough shape (ages, dates)","bucket"]]},
+  tok:{result:"Deterministic encryption / FPE tokenization (DLP)",why:"The same input always gives the same token, so joins work and it's reversible with the key.",keys:"pseudonymize, join on PII",color:"#16a34a"},
+  mask:{result:"Masking / redaction (DLP)",why:"Irreversible: ****1234 or removed entirely.",color:"#16a34a"},
+  hash:{result:"Cryptographic hashing (DLP)",why:"Consistent but one-way: joinable, not reversible.",color:"#16a34a"},
+  bucket:{result:"Bucketing / date shifting (DLP)",why:"Generalizes values to reduce re-identification while keeping analytic shape.",color:"#16a34a"},
+  vpcsc:{result:"VPC Service Controls",why:"A service perimeter blocks data from leaving protected projects via Google APIs, even with valid credentials.",keys:"exfiltration, stolen credentials",color:"#db2777"},
+  resid:{result:"Regional resources + resource locations org policy",why:"Create datasets/buckets in the allowed region and enforce it org-wide with constraints/gcp.resourceLocations.",trap:"A BigQuery dataset's location can't be changed later.",color:"#0891b2"},
+  audit:{result:"Cloud Audit Logs (Data Access) → log sink to BigQuery",why:"Data Access logs record who read data (on by default for BigQuery). Export with a sink for analysis or retention.",color:"#0891b2"}
+ }};
+
+const Q=(id,topic,q,opts,ans,tip,mock)=>({id,d:"d1",topic,q,opts:opts.map(([t,w])=>({t,w})),ans:Array.isArray(ans)?ans:[ans],tip,mock:!!mock});
+PDE.questions.push(
+Q("d1q01","IAM","A data science team of 12 people needs to create their own datasets and run queries in a sandbox project. What should you grant?",[
+ ["roles/bigquery.user on the sandbox project to the team's Google Group","Correct. bigquery.user can run jobs and create datasets, and a group makes access easy to manage."],
+ ["roles/owner on the project to each person","A basic role, far too broad."],
+ ["roles/bigquery.dataViewer on the project","Can read, but can't run queries or create datasets."],
+ ["roles/bigquery.admin to each person individually","Too broad, and granted to individuals instead of a group."]],0,"Self-service analysts → bigquery.user, to a group."),
+Q("d1q02","IAM","A Dataflow pipeline must read from Pub/Sub and write to one BigQuery dataset. What's the best identity setup?",[
+ ["Run it as a developer's user account","Personal accounts break when people leave, and they're over-privileged."],
+ ["A dedicated worker service account with the Pub/Sub subscriber role and dataEditor on the target dataset only","Correct. One SA per pipeline with least privilege."],
+ ["The Compute Engine default service account with Editor","Editor is far too broad."],
+ ["A service account key file stored in the code repository","Leaked keys are a major risk."]],1,"Pipelines → dedicated service account, least privilege."),
+Q("d1q03","IAM","Your organization must ensure that no one can create resources outside Europe, in any project. What should you do?",[
+ ["Tell teams to choose EU regions","Not enforced."],
+ ["Set the resource locations organization policy (constraints/gcp.resourceLocations) to EU locations at the organization level","Correct. Enforced for every project in the organization."],
+ ["Remove Editor roles from developers","Doesn't control location."],
+ ["Use VPC Service Controls","Controls data exfiltration, not where resources are created."]],1,"Residency guardrail → resource locations org policy."),
+Q("d1q04","IAM","An external CI system on GitHub Actions must deploy Dataflow templates to your project. Security forbids long-lived service account keys. What should you use?",[
+ ["Create a service account key and store it as a GitHub secret","A long-lived key, which is exactly what's forbidden."],
+ ["Workload Identity Federation with GitHub's OIDC provider, impersonating a deploy service account","Correct. Short-lived credentials with no keys."],
+ ["Grant the GitHub organization Owner on the project","Wildly over-privileged."],
+ ["Have a developer deploy manually","Not CI/CD."]],1,"External workloads, no keys → Workload Identity Federation."),
+Q("d1q05","Encryption","A healthcare company requires that encryption keys for its BigQuery and Cloud Storage data be rotated every 90 days under its own control, and that access can be revoked instantly. What should you configure?",[
+ ["CMEK with Cloud KMS keys and a 90-day rotation schedule","Correct. You control rotation, and disabling the key revokes access."],
+ ["Default encryption","Google manages it, so you have no control."],
+ ["CSEK for both services","CSEK isn't supported by BigQuery."],
+ ["Client-side encryption for BigQuery","BigQuery can't query data it can't decrypt."]],0,"Control + rotate + revoke → CMEK."),
+Q("d1q06","Encryption","A government customer requires that encryption keys are held in their own key management system outside Google Cloud. Which option meets this?",[
+ ["Cloud KMS software keys","Stored in Google."],
+ ["Cloud HSM","Hardware, but still within Google."],
+ ["Cloud External Key Manager (EKM)","Correct. Keys stay in an external, partner-hosted or on-prem key manager."],
+ ["Google-managed keys","Fully Google-held."]],2,"Keys outside Google → EKM."),
+Q("d1q07","Encryption","A SaaS platform stores each tenant's data in its own BigQuery dataset. When a tenant leaves, all of their data must become unrecoverable immediately, including backups. What design supports this best?",[
+ ["Delete the dataset and rely on time travel expiring","Time travel and fail-safe keep data recoverable for days."],
+ ["A separate CMEK key per tenant; destroy the tenant's key when they leave","Correct. Crypto-shredding makes every copy encrypted with that key unreadable."],
+ ["Row-level security per tenant","Controls access, but doesn't destroy data."],
+ ["Export tenant data to GCS, then delete it","Doesn't address backups."]],1,"Immediate unrecoverable deletion → per-tenant CMEK + crypto-shredding."),
+Q("d1q08","DLP","Customer support transcripts in Cloud Storage may contain credit card numbers and phone numbers. Before loading them into BigQuery, these must be found and masked automatically. What should you use?",[
+ ["Regular expressions in a BigQuery view","Fragile, and the raw data still lands in BigQuery."],
+ ["Sensitive Data Protection (DLP) inspection + de-identification in the pipeline (e.g. Dataflow) before loading","Correct. DLP detects infoTypes and masks them before the data is stored."],
+ ["Column-level security on the transcript column","Hides the whole column, doesn't mask values inside the text."],
+ ["CMEK on the bucket","Encryption doesn't remove PII."]],1,"Find + mask PII in content → DLP."),
+Q("d1q09","DLP","Researchers need patient records where exact ages and dates of birth are hidden, but they still want age-group trends and the time intervals between visits. Which TWO techniques fit?",[
+ ["Bucketing ages into ranges","Correct. Keeps trends while hiding exact values."],
+ ["Date shifting by a consistent random offset per patient","Correct. Hides real dates but preserves intervals."],
+ ["Redacting ages and dates entirely","Destroys the trends the researchers need."],
+ ["Storing the data in Archive class","Unrelated to de-identification."]],[0,1],"Keep shape, hide exact values → bucketing / date shifting."),
+Q("d1q10","DLP","Analysts in two departments join their tables on customer national ID. Policy says they must not see real IDs, but the compliance team must be able to recover real IDs during audits. Which technique?",[
+ ["Redaction","Breaks joins and can't be recovered."],
+ ["SHA-256 hashing","Joinable, but not recoverable."],
+ ["Deterministic encryption (or FPE) with a key in Cloud KMS","Correct. Joinable and reversible by authorized key holders."],
+ ["Random token per row","Breaks joins."]],2,"Joinable + reversible → deterministic encryption / FPE."),
+Q("d1q11","Perimeter","A bank wants to ensure that BigQuery data in its analytics projects can't be copied to any project outside the company, even if an employee's credentials are compromised. What should you implement?",[
+ ["VPC Service Controls service perimeter around the analytics projects","Correct. Blocks API-based exfiltration across the perimeter boundary."],
+ ["Firewall rules","Don't control Google API data movement."],
+ ["CMEK","The copy would still be readable by the attacker's project if the key permissions allow it, so this doesn't stop copying."],
+ ["Two-factor authentication only","Helps, but doesn't stop misuse of valid sessions."]],0,"Exfiltration even with valid creds → VPC-SC."),
+Q("d1q12","Network","Dataproc clusters run on VMs without external IP addresses, but jobs fail to read from Cloud Storage. What should you enable?",[
+ ["Public IPs on all workers","Violates the no-external-IP design."],
+ ["Private Google Access on the cluster's subnet","Correct. Internal-only VMs can reach Google APIs."],
+ ["VPC Service Controls","A perimeter doesn't provide connectivity."],
+ ["A Cloud VPN to Google","Not needed to reach Google APIs from inside the VPC."]],1,"No external IPs + Google APIs → Private Google Access."),
+Q("d1q13","Audit","Security asks for a monthly report of every user who read the salaries table in BigQuery, kept for 3 years. What should you do?",[
+ ["Enable Admin Activity logs","They record config changes, not data reads (and they're always on)."],
+ ["Use BigQuery Data Access audit logs and route them with a log sink to a BigQuery dataset (or GCS) with 3-year retention","Correct. Data access is logged for BigQuery by default, and a sink keeps it for analysis and retention."],
+ ["Ask users to self-report","Not reliable."],
+ ["Query INFORMATION_SCHEMA.JOBS only","Retention is limited (about 180 days), so it doesn't meet 3 years."]],1,"Who read the data → Data Access audit logs + sink."),
+Q("d1q14","Environments","Developers occasionally break production tables while testing pipeline changes. What's the Google-recommended structural fix?",[
+ ["Ask developers to be careful","Not a control."],
+ ["Separate projects for dev, test and prod, with different IAM, and promote changes via CI/CD","Correct. Isolation by project is the standard pattern."],
+ ["Prefix test tables with test_","Same permissions, so the same risk."],
+ ["Give developers Viewer on prod and Owner on dev in the same project","Roles are per project, and mixing environments in one project defeats the purpose."]],1,"Environment isolation → separate projects."),
+Q("d1q15","Residency","A dataset was created in the US multi-region by mistake. It must now be in europe-west3. What should you do?",[
+ ["Edit the dataset location","Dataset location can't be changed after creation."],
+ ["Create a new dataset in europe-west3 and copy the tables (e.g. dataset copy / cross-region copy), then delete the old one","Correct. Location is fixed at creation, so copy into a new dataset."],
+ ["Set an org policy","Prevents future mistakes but doesn't move data."],
+ ["Use VPC Service Controls","Unrelated to location."]],1,"Wrong location → new dataset + copy."),
+Q("d1q16","Reliability","Your transformation SQL in BigQuery occasionally produces duplicate order IDs, which nobody notices for days. You want the pipeline to fail fast when this happens. What should you add?",[
+ ["Dataform assertions (uniqueness) on the output table","Correct. Assertions run with the transformation and fail on bad data."],
+ ["max_bad_records on load jobs","Silently drops rows, the opposite of failing fast."],
+ ["A larger reservation","Unrelated."],
+ ["Clustering by order_id","Organizes storage, doesn't validate."]],0,"Data tests in SQL pipelines → Dataform assertions (or Dataplex quality)."),
+Q("d1q17","DR","An analytics dataset feeds a non-critical weekly report. Requirements: RPO 7 days, RTO 3 days, minimal cost. Which DR approach is enough?",[
+ ["Managed cross-region replication with failover reservations","Far more than needed."],
+ ["Periodic table snapshots or exports to Cloud Storage in another region","Correct. Cheap, and meets the loose RPO/RTO."],
+ ["Active-active pipelines in two regions","Expensive overkill."],
+ ["No DR at all","A region loss would exceed the RTO with nothing to restore."]],1,"Loose RPO/RTO → cheapest backup that meets them."),
+Q("d1q18","Portability","A company wants its pipeline code to be portable so it can run on Google Cloud today and possibly on another runner later, without a rewrite. What should they build on?",[
+ ["Apache Beam (run on Dataflow)","Correct. Beam pipelines run on Dataflow, Flink or Spark runners."],
+ ["BigQuery stored procedures","Tied to BigQuery."],
+ ["Cloud Run functions with proprietary APIs","Not a portable data-processing model."],
+ ["Dataprep recipes","Tied to the service."]],0,"Portable pipelines → Apache Beam."),
+Q("d1q19","Migration","You need to move 2 PB of archived files from an on-prem NAS to Cloud Storage. The site has a 1 Gbps connection that's shared with business traffic. What should you use?",[
+ ["gcloud storage cp in parallel","2 PB over a shared 1 Gbps link takes many months."],
+ ["Storage Transfer Service with on-prem agents","Still bound by the same slow link."],
+ ["Transfer Appliance","Correct. For PB-scale data with constrained bandwidth, ship it physically."],
+ ["Datastream","For database CDC."]],2,"PB + limited bandwidth → Transfer Appliance."),
+Q("d1q20","Migration","Every night, new files in an Amazon S3 bucket must be copied to Cloud Storage, with retries and no servers to manage. What should you use?",[
+ ["A cron job on a Compute Engine VM running aws s3 sync","Self-managed infrastructure."],
+ ["Storage Transfer Service scheduled job from S3","Correct. Managed, scheduled, incremental, with retries."],
+ ["Transfer Appliance","For offline bulk transfers."],
+ ["BigQuery Omni","Queries S3 data; it doesn't copy files."]],1,"Recurring cloud-to-GCS copy → Storage Transfer Service."),
+Q("d1q21","Migration","A retailer is migrating its on-prem Teradata warehouse to BigQuery, including schema and historical data. Which service is designed for this?",[
+ ["Storage Transfer Service","Copies files, not warehouse schemas."],
+ ["BigQuery Data Transfer Service (with the migration service for Teradata)","Correct. Purpose-built for warehouse migrations into BigQuery."],
+ ["Database Migration Service","Targets Cloud SQL/AlloyDB, not BigQuery."],
+ ["Datastream","CDC from operational databases, not Teradata warehouse migration."]],1,"Teradata/Redshift → BigQuery DTS / migration service."),
+Q("d1q22","Migration","An e-commerce MySQL database (3 TB) must move to Cloud SQL with less than 10 minutes of downtime. What should you use?",[
+ ["mysqldump and restore over a weekend","Hours of downtime."],
+ ["Database Migration Service with continuous replication, then a short cut-over","Correct. Minimal-downtime migration into Cloud SQL."],
+ ["Datastream to BigQuery","The wrong target."],
+ ["Transfer Appliance","For files, and far too slow for this."]],1,"DB → Cloud SQL, minimal downtime → DMS."),
+Q("d1q23","Networking","A hybrid architecture needs a private, high-throughput (20 Gbps+) and consistent connection between an on-prem data center and Google Cloud for daily bulk transfers. What should you choose?",[
+ ["Cloud VPN over the internet","Lower and less predictable bandwidth."],
+ ["Dedicated Interconnect","Correct. Private physical links of 10/100 Gbps."],
+ ["Public internet with TLS","Not private or consistent."],
+ ["Transfer Appliance every day","Offline and impractical for daily use."]],1,"Private + high throughput → Dedicated Interconnect."),
+Q("d1q24","Migration","After migrating a large table from an on-prem warehouse to BigQuery, how should you validate the migration before switching users over?",[
+ ["Check that the table exists","Says nothing about correctness."],
+ ["Compare row counts and aggregate checksums per partition, and run key reports on both systems in parallel","Correct. Systematic validation before cut-over."],
+ ["Ask one analyst to eyeball a few rows","Not systematic."],
+ ["Delete the source immediately to avoid confusion","Removes your fallback."]],1,"Validate migrations → counts, checksums, parallel runs."),
+Q("d1q25","Migration","A company runs Hive and Spark on-prem and wants to move to Google Cloud quickly now, then modernize later. What's the right sequence?",[
+ ["Rewrite everything in Dataflow first","Slow, and against the \"quickly now\" requirement."],
+ ["Lift and shift to Dataproc with data in Cloud Storage, then modernize to BigQuery/Dataflow over time","Correct. Move fast with minimal changes, then optimize."],
+ ["Move to Compute Engine VMs with Hadoop installed","Self-managed, not Google's recommendation."],
+ ["Stay on-prem until a full redesign is ready","Doesn't meet the goal."]],1,"Fast migration first (Dataproc), modernize later."),
+Q("d1q26","Privacy","A marketing dataset in BigQuery has an email column. Most analysts may only see a masked version, while the CRM team may see real values. Analysts should still be able to query the table. What should you use?",[
+ ["Two copies of the table","Duplication and drift."],
+ ["A policy tag on the column with a dynamic data masking rule, and Fine-Grained Reader for the CRM team","Correct. One table, masked for most users, real values for authorized readers."],
+ ["Delete the email column","The CRM team needs it."],
+ ["VPC Service Controls","Not column-level."]],1,"Mask a column for some users → policy tags + dynamic masking."),
+
+/* mock-only */
+Q("d1m01","IAM","Which approach to granting BigQuery access is most aligned with Google's best practices?",[
+ ["Grant predefined roles to Google Groups at the dataset level","Correct. Predefined roles, groups, smallest practical scope."],
+ ["Grant Editor at the organization level","Basic role, maximum scope."],
+ ["Grant custom roles with all permissions to each user","Over-privileged and hard to manage."],
+ ["Share a single service account key with all analysts","Shared credentials, no accountability."]],0,null,true),
+Q("d1m02","Encryption","Which statement about CSEK (customer-supplied encryption keys) is true?",[
+ ["It's the recommended way to encrypt BigQuery tables","BigQuery doesn't support CSEK."],
+ ["It's supported for Cloud Storage and Compute Engine disks only, and you must supply the key with each request","Correct."],
+ ["Google stores the key for you in Cloud KMS","That's CMEK."],
+ ["It replaces the need for IAM","Encryption doesn't replace access control."]],1,null,true),
+Q("d1m03","DLP","You need to measure how easily individuals could be re-identified from a de-identified dataset before publishing it. What should you use?",[
+ ["Sensitive Data Protection risk analysis (e.g. k-anonymity)","Correct. DLP computes re-identification risk metrics."],
+ ["Cloud Audit Logs","Records access, not identifiability."],
+ ["VPC Service Controls","Controls exfiltration, not risk."],
+ ["CMEK","Encryption, not risk measurement."]],0,null,true),
+Q("d1m04","Perimeter","A partner must be able to load data into one bucket inside your VPC Service Controls perimeter from their own project. What's the right approach?",[
+ ["Remove the perimeter","Defeats the protection."],
+ ["Configure an ingress rule (or perimeter bridge) allowing that specific identity/project to write to the bucket","Correct. Narrow, explicit exceptions to the perimeter."],
+ ["Give the partner Owner on your project","Over-privileged, and it doesn't address the perimeter."],
+ ["Make the bucket public","Exposes the data to everyone."]],1,null,true),
+Q("d1m05","Migration","You have 50 TB to move and a dedicated 10 Gbps link that's mostly idle. The migration must finish within a week. What's the most practical option?",[
+ ["Transfer Appliance","Shipping takes longer than the network here."],
+ ["Storage Transfer Service (or parallel gcloud storage) over the link","Correct. 50 TB at about 8 Gbps effective is roughly half a day."],
+ ["Datastream","For database CDC."],
+ ["Email the files","No."]],1,null,true),
+Q("d1m06","Audit","Admin Activity audit logs for your projects are:",[
+ ["Disabled by default and must be enabled","Admin Activity logs are always on."],
+ ["Always enabled and can't be disabled","Correct."],
+ ["Only available for BigQuery","They cover all services."],
+ ["Stored only for 24 hours","Retention is much longer."]],1,null,true),
+Q("d1m07","DR","Which change lowers the RPO of a Cloud Storage bucket for a regional disaster most directly?",[
+ ["Enable object versioning","Protects against overwrites, not region loss."],
+ ["Use a dual-region bucket with turbo replication","Correct. Replicated to a second region with a 15-minute RPO target."],
+ ["Switch to Nearline","A cost class, not resilience."],
+ ["Enable uniform bucket-level access","An access model, not DR."]],1,null,true),
+Q("d1m08","Migration","An on-prem Oracle database must stay the system of record for 6 months during a migration, while analysts query an always-up-to-date copy in BigQuery. What should you use?",[
+ ["Datastream CDC from Oracle to BigQuery","Correct. Continuous near-real-time replication into BigQuery."],
+ ["Monthly full exports","Stale."],
+ ["Database Migration Service to Cloud SQL","Targets Cloud SQL, and it's for moving the database itself."],
+ ["Transfer Appliance","Offline and one-time."]],0,null,true),
+Q("d1m09","Privacy","A dataset must be shared with a vendor for model training. Names must be removed, and ZIP codes generalized to the first 3 digits. Which approach?",[
+ ["DLP de-identification: redact names and generalize/bucket ZIP codes, then share the output","Correct. The right technique for each field."],
+ ["CMEK on the dataset","Doesn't change the values."],
+ ["Row-level security","Controls rows, not values."],
+ ["Share the raw data under an NDA","Doesn't meet the privacy requirement."]],0,null,true),
+Q("d1m10","IAM","A team needs a custom set of 5 permissions that no predefined role matches exactly, and predefined roles would grant too much. What should you do?",[
+ ["Grant Editor","Far too broad."],
+ ["Create a custom role with exactly those permissions and grant it to the team's group","Correct. Custom roles are for when no predefined role fits."],
+ ["Grant bigquery.admin","Too broad."],
+ ["Grant each permission individually to each user","Permissions are granted through roles, and per-user grants are hard to manage."]],1,null,true),
+Q("d1m11","Network","A company needs encrypted connectivity from a small branch office to Google Cloud this week, with modest bandwidth needs. What's the fastest suitable option?",[
+ ["Dedicated Interconnect","Takes weeks to provision and is meant for high bandwidth."],
+ ["Cloud VPN (HA VPN)","Correct. Quick to set up, IPsec-encrypted, fine for moderate bandwidth."],
+ ["Transfer Appliance","Offline data shipping."],
+ ["Public IPs with firewall rules","Not a private, encrypted connection."]],1,null,true),
+Q("d1m12","Reliability","Which statement about choosing a DR strategy for data workloads is correct?",[
+ ["Always choose the lowest RPO/RTO available","Ignores cost."],
+ ["Pick the lowest-cost option that still meets the stated RPO and RTO","Correct. Lower RPO/RTO costs more, so only buy what the requirement needs."],
+ ["Backups are never acceptable for DR","They often are, for loose requirements."],
+ ["Multi-region is required for every dataset","Overkill for many workloads."]],1,null,true)
+);
+
+PDE.flash.push(
+ {id:"f1-01",d:"d1",f:"Analyst query-only access to BigQuery",b:"dataViewer (dataset) + jobUser (project)",x:"Granted to a Google Group."},
+ {id:"f1-02",d:"d1",f:"External CI deploys without SA keys",b:"Workload Identity Federation"},
+ {id:"f1-03",d:"d1",f:"All resources must stay in the EU",b:"Resource locations org policy"},
+ {id:"f1-04",d:"d1",f:"Control, rotate & revoke encryption keys",b:"CMEK (Cloud KMS)"},
+ {id:"f1-05",d:"d1",f:"Keys must stay outside Google",b:"Cloud EKM"},
+ {id:"f1-06",d:"d1",f:"CSEK works with…",b:"Cloud Storage & Compute Engine only",x:"Not BigQuery."},
+ {id:"f1-07",d:"d1",f:"Make a tenant's data unrecoverable instantly",b:"Per-tenant CMEK → destroy key (crypto-shredding)"},
+ {id:"f1-08",d:"d1",f:"Join on PII without exposing it, reversible",b:"Deterministic encryption / FPE (DLP)"},
+ {id:"f1-09",d:"d1",f:"Hide exact ages but keep trends",b:"Bucketing"},
+ {id:"f1-10",d:"d1",f:"Hide dates but keep intervals",b:"Date shifting"},
+ {id:"f1-11",d:"d1",f:"Measure re-identification risk",b:"DLP risk analysis (k-anonymity)"},
+ {id:"f1-12",d:"d1",f:"Stop exfiltration even with valid credentials",b:"VPC Service Controls"},
+ {id:"f1-13",d:"d1",f:"Internal-only VMs reach Google APIs",b:"Private Google Access"},
+ {id:"f1-14",d:"d1",f:"Who read this table?",b:"Data Access audit logs (→ log sink)"},
+ {id:"f1-15",d:"d1",f:"Developers break prod while testing",b:"Separate dev/test/prod projects"},
+ {id:"f1-16",d:"d1",f:"BigQuery dataset in the wrong region",b:"New dataset + copy",x:"Location is fixed at creation."},
+ {id:"f1-17",d:"d1",f:"Fail the pipeline on duplicate IDs",b:"Dataform assertions"},
+ {id:"f1-18",d:"d1",f:"RPO vs RTO",b:"RPO = data you can lose · RTO = downtime you can accept"},
+ {id:"f1-19",d:"d1",f:"Query S3 data without moving it",b:"BigQuery Omni"},
+ {id:"f1-20",d:"d1",f:"Governed Iceberg tables for BigQuery + Spark",b:"BigLake"},
+ {id:"f1-21",d:"d1",f:"Transfer time rule of thumb",b:"1 TB @ 100 Mbps ≈ 1 day"},
+ {id:"f1-22",d:"d1",f:"PB of data, slow network",b:"Transfer Appliance"},
+ {id:"f1-23",d:"d1",f:"Nightly S3 → GCS copies",b:"Storage Transfer Service"},
+ {id:"f1-24",d:"d1",f:"Teradata/Redshift → BigQuery",b:"BigQuery Data Transfer Service"},
+ {id:"f1-25",d:"d1",f:"MySQL → Cloud SQL, minimal downtime",b:"Database Migration Service"},
+ {id:"f1-26",d:"d1",f:"Private 10/100 Gbps to on-prem",b:"Dedicated Interconnect",x:"Quick + moderate = Cloud VPN."},
+ {id:"f1-27",d:"d1",f:"Mask a column for most users, real for some",b:"Policy tags + dynamic data masking"}
+);
+PDE.mocks.splice(2,0,{id:"mini-d1",title:"Mini mock · Designing",n:10,min:15,domains:["d1"],lockText:"Needs 10 mock questions"});
+})();
+
+(function(){
+PDE.guides = PDE.guides || {};
+const S=(t,inti,cases,istilah,ingat)=>({t,inti,cases,istilah,ingat});
+
+PDE.guides.d0 = {title:"Mulai di sini: cara berpikir saat ujian",color:"#171a26",intro:"Baca ini dulu sebelum masuk ke domain mana pun. Di ujian PDE, kemampuan memilih jawaban yang paling sesuai keinginan Google sama pentingnya dengan hafal produk.",
+sections:[
+ S("Format ujiannya",
+  "Ujiannya 2 jam, sekitar 40–50 soal pilihan ganda (kadang \"choose 2\"), hasilnya lulus/tidak tanpa skor. Hampir semua soal berbentuk <b>skenario</b>: \"Perusahaan X butuh Y dengan batasan Z. What should you do?\" Biasanya 2 jawaban jelas salah, dan 2 lagi kelihatan benar semua.",
+  [["Ada dua jawaban yang secara teknis sama-sama bisa jalan.","Pilih yang paling <b>managed</b>, paling sedikit operasionalnya, dan memenuhi <b>semua</b> syarat di soal.","Soal PDE mengukur kemampuanmu memilih solusi yang <i>direkomendasikan Google</i>, bukan sekadar solusi yang bisa jalan."]],
+  [["Scenario","Soal cerita berisi kebutuhan bisnis + batasan"],["Pass/fail","Tidak ada skor yang ditampilkan, perkiraannya sekitar 70%"]],
+  ["Baca pertanyaan terakhir dulu, baru ceritanya.","Lingkari kata kunci batasan: <i>real-time, minimal ops, lowest cost, minimal changes, global</i>."]),
+ S("6 aturan emas",
+  "Kalau ragu di antara dua jawaban, pakai aturan ini. Hampir selalu jawaban Google mengikutinya.",
+  [["Pilihannya install Kafka/Hive sendiri di Compute Engine, atau pakai Pub/Sub/BigQuery.","Pakai layanan <mark>managed/serverless</mark>.","Aturan 1: managed lebih baik daripada DIY. \"Install on VMs\" hampir selalu jebakan."],
+   ["Soal bilang \"tim kecil, tidak mau urus infrastruktur\".","Pilih yang paling serverless (BigQuery, Dataflow, Pub/Sub).","Aturan 2: <mark>least operational overhead wins</mark>."],
+   ["Jawaban A paling murah tapi latency-nya tidak masuk syarat.","Coret A. Dari jawaban yang memenuhi semua syarat, baru pilih yang paling murah.","Aturan 3: semua syarat dulu, baru biaya."],
+   ["Analis butuh akses baca ke BigQuery.","Predefined role terkecil, misalnya <code>dataViewer</code> + <code>jobUser</code>, diberikan ke <b>group</b>.","Aturan 4: <mark>least privilege</mark>. Basic role (Owner/Editor) hampir tidak pernah benar."],
+   ["\"Migrasi Spark jobs dengan perubahan minimal.\"","Dataproc (lift &amp; shift). Kalau soal bilang \"modernize\", baru Dataflow/BigQuery.","Aturan 5: ikuti kata-kata di soal tentang seberapa besar perubahan yang boleh."],
+   ["Query BigQuery lambat atau Bigtable hotspot.","Perbaiki desainnya dulu (partition/cluster, row key), baru tambah resource.","Aturan 6: obati penyebabnya, bukan gejalanya."]],
+  [],["Managed > DIY · least ops · semua syarat lalu termurah · least privilege · lift&amp;shift vs modernize · fix the cause"]),
+ S("Radar kata kunci",
+  "Kata-kata ini di soal hampir selalu langsung menunjuk ke jawabannya.",
+  [],
+  [["real-time / streaming","Pub/Sub + Dataflow"],["sub-10 ms, key lookup, time series, IoT","Bigtable"],["global, strongly consistent, relational","Spanner"],["analytics, SQL, petabytes","BigQuery"],["existing Hadoop/Spark","Dataproc"],["no-code / GUI ETL","Data Fusion"],["orchestrate, dependencies, retries","Cloud Composer"],["PII, mask, tokenize","Sensitive Data Protection (DLP)"],["exfiltration","VPC Service Controls"],["own / control the keys","CMEK (Cloud KMS)"],["share without copying","Analytics Hub (BigQuery sharing)"],["catalog, lineage, data quality","Dataplex"]],
+  ["Hafalkan tabel ini. Ini cara paling cepat menaikkan skor."]),
+ S("Nama lama → nama baru",
+  "Soal latihan lama (termasuk dump 2022) memakai nama produk lama. Kalau ketemu, terjemahkan ke nama sekarang.",
+  [],
+  [["Datalab","Vertex AI Workbench / Colab Enterprise"],["ML Engine / AI Platform","Vertex AI"],["Stackdriver","Cloud Logging / Cloud Monitoring"],["Data Studio","Looker Studio"],["Data Catalog","Dataplex Universal Catalog"],["Analytics Hub","BigQuery sharing"],["Cloud DLP","Sensitive Data Protection"],["Datastore","Firestore in Datastore mode"],["Cloud Functions","Cloud Run functions"],["BigQuery flat-rate","BigQuery Editions (reservations)"],["insertAll streaming","Storage Write API"],["Pub/Sub Lite","Pub/Sub atau Managed Kafka (Lite sudah dimatikan)"],["Preemptible VM","Spot VM"]],
+  ["Kunci jawaban di ExamTopics sering salah. Kalau bertentangan dengan 6 aturan emas, ikuti aturannya."])
+]};
+
+PDE.guides.d1 = {title:"Designing data processing systems",color:"#4f46e5",intro:"Domain arsitek: siapa boleh akses apa, bagaimana data dilindungi, bagaimana sistem tahan gangguan, dan bagaimana memindahkan data ke Google Cloud.",
+sections:[
+ S("IAM: siapa boleh apa",
+  "Bayangkan IAM sebagai sistem kartu akses gedung. Izin diberikan di level <b>Organization → Folder → Project → Resource</b> dan <mark>diwariskan ke bawah</mark>: izin dari level atas tidak bisa dicabut di level bawah. Berikan <b>predefined role</b> terkecil ke <b>Google Group</b> atau <b>service account</b>, jangan ke orang satu per satu.",
+  [["Analis harus bisa query dataset <code>sales</code> tapi tidak boleh mengubah data.","<code>roles/bigquery.dataViewer</code> di dataset + <code>roles/bigquery.jobUser</code> di project.","Membaca tabel dan menjalankan query adalah dua izin terpisah. Ini kombinasi yang sangat sering muncul di soal."],
+   ["Pipeline Dataflow perlu menulis ke BigQuery.","Buat <b>service account khusus</b> untuk pipeline itu, beri <code>dataEditor</code> di dataset tujuan.","Satu service account per aplikasi, least privilege, dan tidak pakai akun pribadi."],
+   ["Perusahaan wajib menyimpan semua data hanya di region EU.","<b>Organization policy</b> <code>gcp.resourceLocations</code> yang membatasi ke region EU.","Org policy adalah pagar pembatas untuk seluruh organisasi, bukan izin per orang."]],
+  [["Predefined role","Role siap pakai dari Google untuk tugas spesifik"],["Basic role","Owner/Editor/Viewer, terlalu luas, hindari"],["Service account","Identitas untuk aplikasi atau pipeline, bukan manusia"],["Workload Identity Federation","Workload luar (AWS, GitHub) bisa akses GCP tanpa file key"],["Org policy","Aturan wajib untuk seluruh organisasi (lokasi, larang public IP, dll.)"]],
+  ["BigQuery sekarang bisa diatur sampai level tabel, baris (row-level) dan kolom (policy tags). Catatan lama yang bilang \"hanya level dataset\" sudah usang.","Hindari role <code>bigquery.admin</code> atau Owner di jawaban."]),
+ S("Enkripsi & kunci",
+  "Semua data di GCP <b>otomatis terenkripsi</b>. Pertanyaannya tinggal siapa yang memegang kuncinya. Kalau soal bilang \"kami harus mengontrol, merotasi, atau mencabut kunci\" → <mark>CMEK lewat Cloud KMS</mark>.",
+  [["Auditor minta perusahaan bisa membuat data tidak terbaca kapan saja.","<b>CMEK</b>. Kalau kunci di-disable atau di-destroy, data jadi tidak terbaca (<i>crypto-shredding</i>).","Dengan CMEK, kontrol kunci ada di tanganmu."],
+   ["Regulasi: kunci tidak boleh disimpan di Google sama sekali.","<b>Cloud EKM</b>: kunci di key manager eksternal.","EKM = kunci di luar Google."],
+   ["Kunci harus di hardware tersertifikasi FIPS 140-2 Level 3.","<b>Cloud HSM</b>.","HSM = CMEK yang kuncinya disimpan di hardware khusus."],
+   ["Google sama sekali tidak boleh melihat data mentah.","<b>Client-side encryption</b> sebelum upload.","Data sudah terenkripsi sebelum sampai ke Google."]],
+  [["CMEK","Customer-managed key di Cloud KMS, pilihan paling umum"],["CSEK","Customer-supplied key, hanya untuk Cloud Storage &amp; Compute Engine"],["Crypto-shredding","Hancurkan kunci = data tidak bisa dibaca lagi"]],
+  ["CSEK <b>tidak didukung BigQuery</b>, jadi jawaban yang menyebut CSEK untuk BigQuery pasti salah."]),
+ S("Data pribadi (PII) & DLP",
+  "<b>Sensitive Data Protection</b> (dulu Cloud DLP) mencari data sensitif (KTP, kartu kredit, email…) lalu menyamarkannya. Teknik yang dipilih menentukan apa yang masih bisa dilakukan dengan datanya.",
+  [["Analis perlu JOIN dan COUNT berdasarkan nomor rekening, tapi tidak boleh melihat nomor aslinya.","<mark>Tokenization deterministik / format-preserving encryption (FPE)</mark>.","Input yang sama selalu jadi token yang sama, jadi JOIN tetap jalan. Bisa dikembalikan ke nilai asli dengan kunci."],
+   ["Tampilkan kartu kredit sebagai ****1234 di laporan.","<b>Masking/redaction</b>.","Tidak bisa dikembalikan, dan nilai analitiknya hilang."],
+   ["Umur pasien harus disamarkan untuk riset.","<b>Bucketing</b> (34 → 30–39) atau <b>date shifting</b>.","Mengurangi risiko identifikasi ulang, tapi pola datanya tetap ada."],
+   ["Ukur seberapa mudah dataset di-identifikasi ulang.","<b>Risk analysis</b> (k-anonymity, l-diversity) di DLP.","DLP juga bisa mengukur risiko, tidak hanya menyamarkan."]],
+  [["Redaction / masking","Hapus atau tutupi, permanen"],["Tokenization / FPE","Ganti dengan token yang konsisten dan bisa dibalik"],["Hashing","Konsisten tapi satu arah"],["infoType","Jenis data sensitif yang dideteksi DLP"]],
+  ["Pola umum: data masuk ke bucket staging → DLP/Dataflow menyamarkan → hasil bersih ke BigQuery."]),
+ S("Perimeter, network, audit & residency",
+  "<mark>VPC Service Controls</mark> membuat \"pagar\" di sekitar project. Data BigQuery/GCS tidak bisa dikirim keluar pagar, <b>bahkan oleh orang yang kredensialnya valid</b> (misalnya kredensial yang dicuri).",
+  [["Takut ada karyawan atau hacker yang menyalin data BigQuery ke project pribadinya.","<b>VPC Service Controls</b> perimeter.","IAM tidak cukup kalau kredensialnya bocor. VPC-SC mencegah exfiltration."],
+   ["VM tanpa public IP perlu akses ke BigQuery/GCS.","<b>Private Google Access</b> di subnet tersebut.","Akses API Google lewat jaringan internal."],
+   ["\"Siapa yang membaca tabel gaji minggu lalu?\"","<b>Data Access audit logs</b>, lalu export ke BigQuery lewat log sink.","Untuk BigQuery, data access log aktif secara default."],
+   ["Developer tidak sengaja menulis ke tabel production.","Pisahkan <b>project dev / test / prod</b> dengan IAM berbeda.","Pemisahan environment adalah praktik standar Google."]],
+  [["Exfiltration","Data dibawa keluar tanpa izin"],["Admin Activity log","Selalu aktif, mencatat perubahan konfigurasi"],["Data Access log","Mencatat siapa membaca data"]],
+  ["Lokasi dataset BigQuery tidak bisa diubah setelah dibuat. Kalau perlu pindah, copy ke dataset baru."]),
+ S("Reliability, kualitas data & DR",
+  "Sistem yang andal tidak kehilangan data, datanya benar, dan cepat pulih kalau ada gangguan. Di soal, kenali istilah <b>RPO</b> (seberapa banyak data boleh hilang) dan <b>RTO</b> (berapa lama boleh down).",
+  [["Pastikan tidak ada <code>order_total</code> negatif di tabel hasil transformasi SQL.","<b>Dataform assertions</b>, atau <b>Dataplex data quality scans</b>.","Validasi otomatis sebagai bagian dari pipeline."],
+   ["Transaksi ACID global dengan 99.999% availability.","<b>Spanner</b>.","Hanya Spanner yang punya ACID + skala global."],
+   ["RPO 24 jam boleh, budget minim.","Backup/snapshot ke region lain.","Paling murah, walaupun RTO-nya tinggi."],
+   ["RPO mendekati nol untuk database relasional saat region mati.","Replika lintas region (Cloud SQL cross-region replica) atau Spanner multi-region.","RPO/RTO makin kecil, biayanya makin mahal."]],
+  [["RPO","Recovery Point Objective: batas data yang boleh hilang"],["RTO","Recovery Time Objective: batas waktu down"],["ACID","Atomic, Consistent, Isolated, Durable: transaksi yang aman"],["Dataform","Transformasi SQL di BigQuery dengan git, dependency dan test"]],
+  ["Pilih opsi DR paling murah yang tetap memenuhi angka RPO/RTO di soal."]),
+ S("Portability & multicloud",
+  "Google ingin datamu bisa dipakai di mana saja: format terbuka, engine open-source, dan analitik lintas cloud.",
+  [["Data Parquet ada di S3 dan secara kontrak tidak boleh dipindah.","<mark>BigQuery Omni</mark> (dengan BigLake tables).","BigQuery yang jalan di AWS/Azure, dekat dengan datanya."],
+   ["Lakehouse format Apache Iceberg di GCS dengan security sampai level kolom.","<b>BigLake tables</b>.","Satu lapisan governance di atas file berformat terbuka."],
+   ["Tim ingin mencari semua dataset perusahaan beserta pemilik dan lineage-nya.","<b>Dataplex Universal Catalog</b>.","Katalog + metadata + lineage di satu tempat."]],
+  [["BigLake","Tabel di atas file terbuka (Parquet/Iceberg) dengan security BigQuery"],["Omni","BigQuery untuk data di AWS/Azure"],["Bronze/silver/gold","Zona raw → curated → siap pakai"]],
+  ["Apache Beam bisa jalan di Dataflow, Flink atau Spark. Ini juga termasuk portability."]),
+ S("Migrasi data",
+  "Analoginya pindahan rumah. Barang sedikit dibawa pakai mobil sendiri (<b>gcloud storage</b>). Satu rumah penuh pakai jasa pindahan terjadwal (<b>Storage Transfer Service</b>). Isi gudang besar dikirim pakai <b>kontainer</b> (<b>Transfer Appliance</b>). Kalau rumahnya masih ditinggali selama pindahan, perlu orang yang menyalin setiap perubahan (<b>Datastream / DMS</b>).",
+  [["500 TB data on-prem, bandwidth hanya 100 Mbps.","<mark>Transfer Appliance</mark>.","Lewat jaringan butuh lebih dari 1 tahun. Pakai rumus: <mark>1 TB @100 Mbps ≈ 1 hari</mark>."],
+   ["Sinkronisasi harian dari bucket S3 ke GCS.","<b>Storage Transfer Service</b> terjadwal.","Managed, bisa dijadwalkan, dan bisa melanjutkan kalau terputus."],
+   ["Migrasi Teradata ke BigQuery.","<b>BigQuery Data Transfer Service</b> (migration).","DTS mendukung Teradata, Redshift dan SaaS seperti Google Ads."],
+   ["Pindahkan MySQL production ke Cloud SQL dengan downtime minimal.","<b>Database Migration Service</b>.","Replikasi berkelanjutan, lalu cut-over."],
+   ["Replikasi perubahan Oracle ke BigQuery hampir real-time untuk analitik.","<mark>Datastream</mark> (CDC).","Change data capture serverless."],
+   ["Koneksi on-prem ke GCP yang privat dan ber-throughput tinggi.","<b>Dedicated Interconnect</b>. VPN untuk kebutuhan cepat dan volume sedang.","Interconnect = link fisik 10/100 Gbps."]],
+  [["CDC","Change data capture: menyalin setiap perubahan database"],["Lift &amp; shift","Pindah apa adanya, minim perubahan"],["Cut-over","Momen memindahkan traffic ke sistem baru"]],
+  ["Urutan migrasi: assess → plan → migrate → validate (row count, checksum) → optimize.","Hadoop → Dataproc · Kafka → Managed Kafka/Pub/Sub · HBase → Bigtable · Airflow → Composer."])
+]};
+
+PDE.guides.d2 = {title:"Ingesting & processing the data",color:"#0891b2",intro:"Domain terbesar (25%). Bagaimana data masuk (Pub/Sub, Datastream), diproses (Dataflow, Dataproc), dan diorkestrasi (Composer).",
+sections:[
+ S("Peta pipeline & pilih engine",
+  "Pola streaming standar: <mark>Pub/Sub → Dataflow → BigQuery</mark> (analitik) dan/atau Bigtable (serving cepat). Pola batch: GCS → Dataflow/Dataproc → BigQuery, atau cukup <b>load job + SQL</b>.",
+  [["300 Spark job on-prem mau dipindah cepat tanpa rewrite.","<mark>Dataproc</mark>.","Managed Spark/Hadoop, cocok untuk lift &amp; shift."],
+   ["Pipeline baru, logika sama untuk batch dan streaming, tim kecil.","<mark>Dataflow</mark> (Apache Beam).","Serverless, autoscaling, satu codebase."],
+   ["Tim ETL tidak bisa coding, sumbernya Salesforce, Oracle dan SFTP.","<b>Cloud Data Fusion</b>.","Drag-and-drop dengan banyak connector."],
+   ["File CSV harian masuk ke GCS, cukup dimuat ke BigQuery.","<b>BigQuery load job</b> (atau DTS dari GCS).","Jangan berlebihan pakai Dataflow kalau tidak ada transformasi."]],
+  [["ELT","Load dulu, transformasi di BigQuery dengan SQL"],["Serverless","Tidak perlu mengurus server atau cluster"]],
+  ["Existing Spark → Dataproc · baru/serverless → Dataflow · no-code → Data Fusion · data sudah di BQ → SQL/Dataform"]),
+ S("Pub/Sub",
+  "Pub/Sub itu kantor pos. Publisher kirim surat ke <b>topic</b>. Setiap <b>subscription</b> dapat <b>salinan sendiri</b> dari semua surat. Subscriber harus tanda tangan (<b>ack</b>) sebelum batas waktu (<b>ack deadline</b>), kalau tidak, suratnya dikirim ulang.",
+  [["Tim fraud dan tim analytics sama-sama butuh semua pesan.","<mark>Dua subscription</mark>.","Kalau satu subscription dipakai bersama, pesannya dibagi-bagi, bukan disalin."],
+   ["Banyak pesan duplikat.","Subscriber terlambat ack. <b>Perpanjang ack deadline</b> dan buat proses idempotent (dedupe pakai ID).","Default-nya <mark>at-least-once</mark>, dan ack yang terlambat memicu pengiriman ulang."],
+   ["Pesan per customer harus diproses berurutan.","<b>Ordering keys</b> (key = customer_id).","Urutan terjamin per key, throughput tetap tinggi."],
+   ["Deploy subscriber baru yang mungkin bug, dan mau bisa proses ulang.","Buat <b>snapshot</b> dulu, lalu <mark>seek</mark> ke snapshot itu kalau perlu.","Seek ke snapshot atau timestamp = replay."],
+   ["Satu pesan rusak membuat subscriber crash terus-menerus.","<b>Dead-letter topic</b>.","Setelah N kali gagal, pesan dipindah ke topic lain dan tidak memblokir."],
+   ["Pesan langsung masuk ke tabel BigQuery tanpa transformasi.","<mark>BigQuery subscription</mark>.","Tidak perlu Dataflow."]],
+  [["Pull","Subscriber yang mengambil pesan (Dataflow pakai ini)"],["Push","Pub/Sub POST ke endpoint HTTPS (Cloud Run)"],["Backlog","Pesan yang belum di-ack; pantau oldest_unacked_message_age"],["Managed Kafka","Kafka asli tanpa urus broker, untuk aplikasi Kafka yang sudah ada"]],
+  ["Pub/Sub Lite sudah mati. Exactly-once delivery tersedia untuk pull subscription."]),
+ S("Apache Beam: building blocks",
+  "Dataflow menjalankan kode <b>Apache Beam</b>. Datanya disebut <b>PCollection</b>, setiap langkahnya disebut <b>transform</b>.",
+  [["Setiap transaksi perlu di-enrich dengan tabel tier customer berukuran 5 MB.","<mark>Side input</mark>.","Data kecil dibagikan ke semua worker. Jangan query database untuk setiap elemen."],
+   ["Join stream orders dan payments berdasarkan order_id.","<b>CoGroupByKey</b>.","Ini cara join di Beam."],
+   ["0,1% record gagal di-parse dan membuat job gagal.","<mark>Tagged output → dead-letter</mark> table/bucket.","Data valid tetap jalan, yang rusak disimpan untuk dicek."],
+   ["Total penjualan per toko lambat karena GroupByKey lalu dijumlah manual.","<b>Combine.perKey</b>.","Agregasi parsial sebelum shuffle, jadi lebih cepat."]],
+  [["PCollection","Dataset terdistribusi (bounded = batch, unbounded = stream)"],["ParDo / DoFn","Proses per elemen"],["DirectRunner","Menjalankan pipeline secara lokal untuk testing"]],
+  []),
+ S("Waktu, window & trigger",
+  "<b>Event time</b> = kapan kejadiannya. <b>Processing time</b> = kapan sampai di server. Untuk analitik yang benar, kelompokkan berdasarkan <mark>event time</mark>. <b>Watermark</b> adalah perkiraan Dataflow bahwa semua data sampai waktu T sudah masuk.",
+  [["Hitung login gagal per 5 menit, tanpa overlap.","<mark>Fixed window</mark> 5 menit.","Kata kuncinya \"every N minutes\"."],
+   ["Rata-rata harga 30 menit terakhir, di-update tiap menit.","<mark>Sliding window</mark> (size 30, period 1).","Moving average."],
+   ["Kelompokkan klik user sampai dia idle 20 menit.","<mark>Session window</mark> dengan gap 20 menit.","Per key, ditutup setelah tidak ada aktivitas."],
+   ["Event telat sampai 2 jam tapi hilang dari hasil.","Window berdasarkan event time + <mark>allowed lateness</mark> 2 jam.","Default allowed lateness = 0, jadi data telat dibuang."],
+   ["Dashboard butuh angka sementara tiap menit, lalu angka final.","Early trigger berbasis processing time + trigger watermark, mode <b>accumulating</b>.","Accumulating = setiap update berisi total lengkap."]],
+  [["Watermark","Perkiraan kelengkapan data"],["Trigger","Kapan hasil window dikeluarkan"],["Allowed lateness","Batas toleransi data telat"],["Accumulating vs discarding","Total penuh vs hanya bagian baru"]],
+  ["Coba tool <b>Window Playground</b> di tab Practice."]),
+ S("Dataflow di production",
+  "Yang paling sering keluar di soal: cara deploy dan menghentikan job streaming tanpa kehilangan data.",
+  [["Fix bug kompatibel di job streaming, state harus tetap ada.","<mark>--update</mark> dengan nama job yang sama.","Mengganti kode tanpa kehilangan state."],
+   ["Perubahan tidak kompatibel (window diganti), tidak boleh ada data hilang.","<mark>Drain</mark>, lalu jalankan job baru.","Drain menyelesaikan data in-flight. Cancel membuang data in-flight."],
+   ["Analis mau menjalankan pipeline sendiri dengan parameter.","<b>Flex Template</b>.","Bisa dijalankan dari console tanpa menyentuh kode."],
+   ["Satu negara menghasilkan 70% traffic dan satu worker kewalahan.","<b>Hot key</b> → <code>withHotKeyFanout</code>.","Menambah worker tidak menyelesaikan masalah hot key."],
+   ["Lag naik karena memanggil API eksternal per elemen.","Batch request-nya (<code>GroupIntoBatches</code>) atau pakai cache.","Round-trip jauh lebih sedikit."],
+   ["Worker tidak boleh punya public IP.","<code>--no_use_public_ips</code> + Private Google Access.","Akses API Google lewat jalur privat."],
+   ["Batch mingguan tidak mendesak dan mau lebih murah.","<b>FlexRS</b>.","Diskon karena jadwal mulainya fleksibel."]],
+  [["System lag / data freshness","Metrik ketertinggalan pipeline"],["Streaming Engine","State dipindah dari worker ke service"],["Storage Write API","Sink BigQuery yang mendukung exactly-once"]],
+  ["Update = kompatibel · Drain = aman · Cancel = data in-flight hilang"]),
+ S("Dataproc",
+  "Analoginya sewa mobil per perjalanan. Buat cluster untuk satu job, jalankan, lalu hapus. Barang bawaanmu (data) disimpan di rumah, yaitu <mark>Cloud Storage, bukan HDFS</mark>.",
+  [["Cluster menyala 24/7 padahal job cuma 2 jam per malam.","<mark>Ephemeral cluster</mark> + workflow template / scheduled deletion.","Bayar hanya saat dipakai. Billing per detik."],
+   ["Mau hemat tanpa risiko kehilangan data.","<b>Spot/preemptible secondary workers</b>. Primary worker tetap standar.","Secondary worker hanya untuk compute, jadi aman kalau hilang."],
+   ["Semua node perlu library Python khusus.","<mark>Initialization actions</mark>.","Script yang otomatis jalan di setiap node saat cluster dibuat."],
+   ["Tim data science mau PySpark tanpa urus cluster.","<b>Serverless for Apache Spark</b>.","Tidak ada cluster sama sekali."],
+   ["Notebook interaktif harus tetap jalan kalau master node mati.","<b>High-availability mode</b> (3 master).","Cluster tetap hidup walau satu master gagal."]],
+  [["HDFS","File system milik cluster, ikut hilang saat cluster dihapus"],["Metastore","Katalog Hive yang bisa dipakai bersama oleh banyak cluster"],["Component Gateway","Akses aman ke UI YARN/Spark/Jupyter"]],
+  []),
+ S("Tool lain & orkestrasi",
+  "Pilih orkestrator sesuai kompleksitas: <mark>Composer</mark> untuk DAG kompleks, <b>Workflows</b> untuk rangkaian API yang ringan, <b>Scheduler</b> untuk cron, <b>Eventarc</b> untuk trigger berbasis event.",
+  [["Setiap malam: Dataproc → load BigQuery → quality check, dengan retry, alert dan backfill.","<mark>Cloud Composer</mark> (managed Airflow).","Dependency + retry + backfill antar service."],
+   ["Panggil 3 API berurutan beberapa kali sehari, semurah mungkin.","<b>Workflows</b>.","Serverless, bayar per step."],
+   ["Proses harus jalan begitu ada file masuk ke bucket.","<b>Eventarc</b> → Cloud Run function → jalankan Dataflow template.","Berbasis event, tanpa polling."],
+   ["Transformasi SQL di BigQuery dengan version control dan test.","<b>Dataform</b>.","SQLX + assertions + git."],
+   ["Replika PostgreSQL ke BigQuery dengan lag beberapa menit.","<mark>Datastream</mark>.","CDC serverless."],
+   ["Testing otomatis lalu promosi pipeline dari dev ke prod.","<b>Cloud Build</b> → Artifact Registry → deploy ke project dev lalu prod.","CI/CD dengan environment terpisah."]],
+  [["DAG","Directed acyclic graph: rangkaian task beserta dependency-nya"],["Sensor","Task Airflow yang menunggu kondisi tertentu (misalnya file sudah ada)"],["Idempotent","Kalau dijalankan ulang, hasilnya tetap sama"]],
+  [])
+]};
+})();
+
+(function(){
+const S=(t,inti,cases,istilah,ingat)=>({t,inti,cases,istilah,ingat});
+
+PDE.guides.d3 = {title:"Storing the data",color:"#16a34a",intro:"Memilih database yang tepat adalah skill yang paling sering diuji. Kuasai pohon keputusannya, maka sepertiga ujian jadi lebih mudah.",
+sections:[
+ S("Pohon keputusan storage",
+  "Tanyakan berurutan: file? analitik? OLTP relasional? NoSQL skala besar? dokumen app? cache?",
+  [["Simpan video, log mentah, backup.","<mark>Cloud Storage</mark>.","Object storage, kapasitas tak terbatas."],
+   ["SQL di atas 300 TB data untuk dashboard.","<mark>BigQuery</mark>.","Data warehouse serverless skala petabyte."],
+   ["Backend aplikasi web, MySQL, satu region.","<b>Cloud SQL</b>.","OLTP relasional yang di-manage."],
+   ["Inventory game global, tidak boleh double-spend, 99.999%.","<mark>Spanner</mark>.","ACID global dengan strong consistency."],
+   ["2 juta reading IoT per detik, query per device &lt;10 ms.","<mark>Bigtable</mark>.","NoSQL wide-column, throughput sangat tinggi."],
+   ["Profil user di app mobile yang harus bisa offline.","<b>Firestore</b>.","Sinkronisasi offline + dokumen fleksibel."],
+   ["Session atau cache dengan latency sub-milidetik.","<b>Memorystore</b>.","Redis/Valkey di memori."]],
+  [["OLTP","Transaksi aplikasi sehari-hari (insert/update baris)"],["OLAP","Analitik: scan banyak baris untuk agregasi"]],
+  ["BigQuery ≠ OLTP · Bigtable tanpa join/secondary index · Cloud SQL scale up, bukan scale out"]),
+ S("Cloud Storage",
+  "Ada 4 kelas dengan durasi minimum berbeda. Semua bisa diakses dalam hitungan milidetik. Makin \"dingin\" kelasnya, makin murah biaya simpan tapi makin mahal biaya baca.",
+  [["Backup dipakai sekitar sebulan sekali, dihapus setelah 6 bulan.","<b>Nearline</b> + lifecycle rule hapus di hari ke-180.","Nearline = akses bulanan (minimal 30 hari)."],
+   ["Arsip regulasi 7 tahun, tidak boleh dihapus siapa pun.","<b>Archive</b> + <mark>retention policy + Bucket Lock</mark>.","Bucket Lock = WORM, admin pun tidak bisa menghapus."],
+   ["Pola akses tidak bisa diprediksi.","<b>Autoclass</b>.","GCS memindahkan kelas otomatis per objek."],
+   ["Auditor tanpa akun Google perlu download 1 file selama 24 jam.","<b>Signed URL</b>.","Akses sementara ke satu objek."],
+   ["RPO 15 menit di dua region EU tertentu.","<b>Dual-region + turbo replication</b>.","Turbo replication menargetkan RPO 15 menit."]],
+  [["Standard / Nearline / Coldline / Archive","Minimum 0 / 30 / 90 / 365 hari"],["Lifecycle rule","Pindah kelas atau hapus otomatis berdasarkan umur"],["Object versioning","Menyimpan versi lama objek"]],
+  []),
+ S("BigQuery: partition, cluster, schema",
+  "Di mode on-demand, kamu bayar per <b>byte yang di-scan</b>. <mark>LIMIT tidak mengurangi biaya</mark>. Yang mengurangi: pilih kolom seperlunya, filter partition, dan clustering.",
+  [["Query selalu filter <code>event_date</code>, tapi scan seluruh tabel.","<mark>Partition by event_date</mark> + require_partition_filter.","Partisi yang tidak relevan tidak dibaca."],
+   ["Sudah dipartisi, tapi filter customer_id masih membaca hampir seluruh partisi.","<mark>Cluster by customer_id</mark>.","Data di dalam partisi diurutkan, jadi blok yang tidak relevan dilewati."],
+   ["Tabel 20 TB yang sudah ada mau dibuat partitioned.","<code>CREATE TABLE … PARTITION BY … AS SELECT</code>.","Tidak bisa mengubah tabel yang sudah ada secara langsung."],
+   ["Tabel orders selalu di-join dengan order_items.","<mark>Nested &amp; repeated fields</mark>.","Item disimpan di dalam baris order, jadi tidak perlu join."],
+   ["Masih membuat tabel baru per hari (logs_20261101…).","Gabungkan jadi <b>satu tabel partitioned</b>.","Partitioned lebih baik daripada date-sharded."]],
+  [["Clustering","Mengurutkan data sampai 4 kolom"],["Denormalisasi","Menggabungkan data supaya tidak perlu join"],["STRUCT / ARRAY","Kolom bersarang / kolom berulang"]],
+  []),
+ S("BigQuery: loading, recovery & biaya storage",
+  "Batch load gratis. Streaming paling baik pakai Storage Write API. Ada time travel untuk \"undo\".",
+  [["Load harian tercepat, mendukung perubahan schema.","File <mark>Avro</mark>.","Schema ikut di dalam file, blok terkompresi bisa dibaca paralel."],
+   ["Streaming mahal dan ada duplikat setelah retry.","<mark>Storage Write API</mark>.","Lebih murah dan mendukung exactly-once."],
+   ["Ada UPDATE salah 3 jam lalu.","<mark>Time travel</mark>: <code>FOR SYSTEM_TIME AS OF</code>.","Bisa sampai 7 hari ke belakang."],
+   ["Data scientist butuh copy tabel 30 TB yang bisa diubah, tapi murah.","<b>Table clone</b>.","Hanya bayar untuk bagian yang berubah. Snapshot = read-only."],
+   ["Join harian dengan tabel kecil di Cloud SQL tanpa membangun pipeline.","<b>Federated query</b> (<code>EXTERNAL_QUERY</code>).","Query langsung tanpa copy data."]],
+  [["Long-term storage","Tabel yang tidak diubah 90 hari otomatis ~50% lebih murah"],["Partition expiration","Partisi lama dihapus otomatis"],["Snapshot","Salinan read-only di titik waktu tertentu"]],
+  []),
+ S("Bigtable",
+  "Bigtable itu buku telepon raksasa yang diurutkan hanya berdasarkan <b>row key</b>. Desain row key sesuai query utamamu, dan <mark>jangan pernah mulai row key dengan timestamp</mark>.",
+  [["Query utama: 50 reading terbaru untuk satu truk.","Row key <code>truck_id#reverse_timestamp</code>.","Truk dikelompokkan, data terbaru berada di urutan pertama."],
+   ["Row key <code>timestamp#device</code>, satu node CPU 100%.","<mark>Hotspot</mark> → ubah ke <code>device#timestamp</code> (field promotion).","Menambah node tidak menyelesaikan hotspot. Diagnosis dengan Key Visualizer."],
+   ["Batch analytics malam memperlambat app.","Replikasi ke cluster kedua + <b>app profile single-cluster routing</b> untuk batch.","Workload dipisah per cluster."],
+   ["Butuh failover otomatis kalau zona mati.","<b>Multi-cluster routing</b>.","High availability."],
+   ["Instance HDD mau diganti SSD.","Buat <b>instance baru</b> lalu copy datanya.","Tipe storage tidak bisa diubah."]],
+  [["Field promotion","Memindahkan field ke row key"],["Salting","Menambah prefix hash. Cadangan saja, karena range scan jadi rusak"],["Tall &amp; narrow","Satu baris per event untuk time series"]],
+  ["Bigtable tidak cocok untuk data kecil (&lt;1 TB), query multi-atribut, atau transaksi multi-baris."]),
+ S("Spanner, Cloud SQL, AlloyDB, Firestore, Memorystore",
+  "Semuanya database operasional. Bedanya ada di skala, kompatibilitas, dan pola aksesnya.",
+  [["Spanner dengan primary key auto-increment, latency write naik.","Ganti ke <mark>UUIDv4</mark> atau bit-reversed sequence.","Key berurutan membuat hotspot."],
+   ["Order dan line item selalu dibaca bersamaan di Spanner.","<b>Interleaved tables</b>.","Baris anak disimpan di dekat induknya."],
+   ["Query laporan memperlambat Cloud SQL.","<b>Read replica</b>.","Beban baca dipindah ke replika."],
+   ["Cloud SQL harus tetap hidup kalau satu region mati.","<mark>Cross-region replica</mark> yang di-promote.","HA hanya melindungi dari kegagalan zona."],
+   ["Postgres perlu lebih cepat dan bisa analitik di data live, dengan perubahan minimal.","<mark>AlloyDB</mark>.","Postgres-compatible + columnar engine."],
+   ["Katalog produk dibaca ribuan kali per detik dengan query yang sama.","<b>Memorystore</b> sebagai cache.","Beban Cloud SQL turun."]],
+  [["HA (Cloud SQL)","Standby di zona lain"],["HTAP","Transaksi + analitik di satu database"],["Data Boost (Spanner)","Analitik tanpa mengganggu OLTP"]],
+  []),
+ S("Warehouse modelling & Dataplex",
+  "Model data sesuai pertanyaan bisnis, lalu kelola lake dengan Dataplex supaya tidak jadi \"data swamp\".",
+  [["Penjualan lama harus menampilkan region customer pada saat transaksi terjadi.","<mark>SCD Type 2</mark> (valid_from, valid_to, is_current) + MERGE.","Riwayat perubahan tetap tersimpan."],
+   ["10 tim domain, butuh katalog pusat, policy pusat dan data quality, tanpa memindahkan data.","<mark>Dataplex</mark>: lakes/zones + Universal Catalog + data quality scans.","Federated governance / data mesh."],
+   ["Spark lambat membaca jutaan file JSON berukuran 5 KB.","<b>Compact</b> jadi file Parquet/Avro yang lebih besar.","Overhead per file sangat dominan."]],
+  [["Normalisasi","Pecah tabel demi integritas (OLTP)"],["Star schema","Fact besar + dimensi kecil"],["Lake → Zone → Asset","Struktur Dataplex"]],
+  [])
+]};
+
+PDE.guides.d4 = {title:"Preparing & using data for analysis",color:"#d97706",intro:"Membuat data cepat untuk BI, aman untuk dibagikan, dan siap dipakai untuk ML/GenAI.",
+sections:[
+ S("Dashboard cepat & murah",
+  "Untuk BI di atas BigQuery, ada tiga senjata utama: <mark>BI Engine</mark> (in-memory), <mark>materialized view</mark> (agregat yang di-refresh otomatis), dan partition/cluster.",
+  [["Dashboard harus merespons di bawah 1 detik untuk banyak user.","<mark>BI Engine</mark>.","Akselerasi in-memory."],
+   ["Agregasi yang sama di-query berulang kali.","<mark>Materialized view</mark>.","Dihitung di awal, di-refresh otomatis, dan query bisa di-rewrite otomatis untuk memakainya."],
+   ["Definisi metrik harus konsisten di seluruh perusahaan.","<b>Looker</b> (LookML).","Semantic layer terpusat."],
+   ["Dashboard Looker Studio tidak menampilkan data 1 jam terakhir.","Atur <b>data freshness / cache</b> di laporan Looker Studio.","Masalahnya di cache laporan, bukan di BigQuery."]],
+  [["BI Engine","Memori cepat untuk query BI"],["Materialized view","Hasil query yang disimpan dan di-update otomatis"],["Looker Studio","Dulu Data Studio"]],
+  []),
+ S("Query lambat atau mahal",
+  "Langkah troubleshooting: lihat execution plan → kurangi kolom → filter partition/cluster → filter sebelum join → hindari self-join dan skew.",
+  [["Analis memakai SELECT * dan LIMIT 100 lalu kaget dengan tagihannya.","Pilih kolom seperlunya + filter partition.","<mark>LIMIT tidak mengurangi byte yang di-scan.</mark>"],
+   ["Self-join besar untuk menghitung running total.","<b>Window function</b>.","Satu scan, tanpa join."],
+   ["Mau tahu biaya sebelum menjalankan query.","<b>Dry run</b>, dan set <b>maximum bytes billed</b>.","Mencegah salah query yang mahal."],
+   ["Hitung unique user di miliaran baris, angka perkiraan boleh.","<code>APPROX_COUNT_DISTINCT</code>.","Jauh lebih cepat."]],
+  [["Execution plan","Detail stage, slot dan shuffle sebuah query"],["Skew","Satu key memegang sebagian besar data"]],
+  []),
+ S("Keamanan saat berbagi data",
+  "Pilih sesuai apa yang mau dibatasi: <b>hasil query</b>, <b>baris</b>, atau <b>kolom</b>.",
+  [["Partner boleh lihat ringkasan, tapi tidak tabel aslinya.","<mark>Authorized view</mark> di dataset terpisah.","View diberi izin membaca sumbernya, user hanya bisa membaca view."],
+   ["Manajer region hanya boleh melihat baris region-nya.","<mark>Row-level access policy</mark>.","Satu tabel, filter otomatis per user/group."],
+   ["Kolom gaji disembunyikan dari sebagian besar user.","<mark>Policy tags</mark> (column-level security).","Hanya Fine-Grained Reader yang bisa membaca."],
+   ["User boleh query kolomnya, tapi nilainya disamarkan.","<b>Dynamic data masking</b>.","Hash, null, atau 4 digit terakhir."]],
+  [["Policy tag","Label sensitivitas pada kolom (taxonomy di Dataplex)"],["Fine-Grained Reader","Role untuk membaca kolom yang dilindungi"]],
+  []),
+ S("Dasar ML yang sering keluar",
+  "Banyak soal lama menanyakan konsep ML umum. Begitu paham polanya, ini jadi poin gratis.",
+  [["Akurasi bagus di training tapi jelek di data baru.","<mark>Overfitting</mark> → regularization (L1/L2), dropout, tambah data, kurangi fitur.","Model menghafal, bukan belajar."],
+   ["Jelek di training maupun di test.","<b>Underfitting</b> → tambah fitur, model yang lebih kompleks.","Model terlalu sederhana."],
+   ["Deteksi fraud dengan data 1% fraud, akurasi 99% tapi tidak berguna.","Pakai <mark>precision/recall</mark>, bukan accuracy. Downsample atau upweight.","Class imbalance."],
+   ["Mendeteksi kanker: jangan sampai ada yang terlewat.","Prioritaskan <mark>recall</mark>.","Recall = dari semua yang positif, berapa yang tertangkap."],
+   ["Fitur user_id punya jutaan nilai.","<b>Embedding</b> atau hash buckets.","One-hot terlalu besar."],
+   ["Preferensi fashion berubah dari waktu ke waktu.","Retrain rutin dengan <b>kombinasi data lama + baru</b>.","Supaya tetap relevan tanpa melupakan pola lama."]],
+  [["L1","Membuat bobot jadi 0 (seleksi fitur)"],["L2","Mengecilkan semua bobot"],["Training-serving skew","Preprocessing saat training berbeda dengan saat production"],["Data leakage","Info target \"bocor\" ke dalam fitur"]],
+  []),
+ S("BigQuery ML, Vertex AI & API siap pakai",
+  "Pilih tool ML berdasarkan <b>siapa user-nya</b> dan <b>seberapa custom</b> kebutuhannya.",
+  [["Analis SQL ingin prediksi churn dari data di BigQuery.","<mark>BigQuery ML</mark> (<code>CREATE MODEL … logistic_reg</code>).","ML cukup dengan SQL."],
+   ["OCR invoice dan analisis sentimen, tanpa tim ML.","<mark>Pre-trained APIs</mark>: Document AI, Natural Language, Vision, Translation.","Tidak perlu training."],
+   ["Model custom, data berlabel, tapi minim coding.","<b>Vertex AI AutoML</b>.","Google yang melatih modelnya."],
+   ["Data scientist dengan TensorFlow/PyTorch dan GPU/TPU.","<b>Vertex AI custom training</b>.","Kontrol penuh."],
+   ["Prediksi latency rendah untuk aplikasi vs scoring jutaan baris semalam.","<b>Online prediction</b> vs <b>batch prediction</b>.","Sinkron dan cepat vs asinkron dan besar."],
+   ["Forecast penjualan per toko.","BigQuery ML <code>arima_plus</code>.","Model time series."]],
+  [["TRANSFORM (BQML)","Preprocessing yang otomatis dipakai ulang saat predict"],["Feature Store","Fitur yang konsisten untuk training dan serving"],["Model Monitoring","Deteksi skew dan drift"]],
+  []),
+ S("GenAI: embedding, vector search & RAG",
+  "<b>Embedding</b> mengubah teks jadi deretan angka, seperti titik di \"peta makna\". <b>RAG</b>: cari potongan dokumen yang relevan, lalu berikan ke LLM supaya jawabannya berdasarkan datamu sendiri.",
+  [["Chatbot internal yang menjawab dari ribuan PDF SOP.","RAG: chunk → <code>ML.GENERATE_EMBEDDING</code> → vector index → <code>VECTOR_SEARCH</code> → Gemini.","Jawabannya berdasarkan dokumen sendiri."],
+   ["Dokumen sering di-update dan jawaban chatbot jadi basi.","Buat embedding ulang secara incremental untuk dokumen yang berubah.","Kesegaran embedding termasuk tugas data engineer."]],
+  [["Chunking","Memecah dokumen jadi potongan kecil"],["Vector index","Index untuk mencari embedding terdekat"]],
+  []),
+ S("Berbagi data",
+  "<mark>Analytics Hub</mark> (sekarang BigQuery sharing): publisher membuat listing, subscriber mendapat <b>linked dataset</b> tanpa copy data. Data selalu terbaru, dan subscriber membayar query-nya sendiri.",
+  [["Berbagi dataset dengan 30 partner luar, tetap fresh, tanpa copy.","<mark>Analytics Hub</mark>.","Linked dataset."],
+   ["Dua perusahaan ingin analisis gabungan tanpa saling melihat data mentah.","<b>Data clean room</b>.","Ada aturan privasi seperti agregasi minimum."]],
+  [["Linked dataset","Pointer read-only ke data publisher"],["Exchange / listing","Tempat dan item yang dibagikan"]],
+  ["Biaya compute ditanggung project yang <b>menjalankan</b> query, biaya storage oleh pemilik tabel."])
+]};
+
+PDE.guides.d5 = {title:"Maintaining & automating data workloads",color:"#db2777",intro:"Pekerjaan \"hari kedua\": biaya, kapasitas, penjadwalan, monitoring, dan desain tahan gagal.",
+sections:[
+ S("Biaya BigQuery",
+  "Ada dua model: <b>on-demand</b> (bayar per TiB yang di-scan) dan <mark>Editions</mark> (bayar slot compute: reservation dengan baseline + autoscaling, bisa commitment 1/3 tahun). Flat-rate sudah tidak ada.",
+  [["Tagihan on-demand besar dan tidak terprediksi, workload stabil.","<mark>BigQuery Editions</mark> + reservation (baseline + autoscaling).","Biaya lebih bisa diprediksi."],
+   ["ETL malam memperlambat dashboard pagi.","<b>Reservation terpisah</b> untuk ETL dan BI, lalu assign project masing-masing.","Isolasi workload."],
+   ["Cegah satu user menghabiskan budget dengan query besar.","<b>Custom quota</b> per user/project + maximum bytes billed.","Batas keras."],
+   ["Laporan tidak mendesak dan boleh menunggu.","<b>Batch priority</b>.","Tidak dihitung ke batas query bersamaan."]],
+  [["Slot","Unit compute BigQuery"],["Baseline","Slot minimal yang selalu tersedia"],["Commitment","Kontrak slot jangka panjang untuk diskon"]],
+  []),
+ S("Hemat biaya di service lain",
+  "Setiap service punya cara hemat masing-masing.",
+  [["Dataproc menyala tanpa dipakai di malam hari.","Ephemeral cluster, scheduled deletion, Spot secondary workers, autoscaling.","Bayar hanya saat job jalan."],
+   ["Batch Dataflow tidak mendesak.","<b>FlexRS</b>.","Diskon dengan jadwal fleksibel."],
+   ["Log di GCS jarang dibaca setelah 30 hari.","Lifecycle rule ke Coldline/Archive, atau Autoclass.","Kelas yang lebih dingin lebih murah."],
+   ["Mau tahu tim mana yang paling boros.","<b>Labels</b> + billing export ke BigQuery.","Analisis biaya per tim atau per job."]],
+  [],[]),
+ S("Otomasi dengan Composer",
+  "DAG yang baik itu <mark>idempotent</mark> (aman dijalankan ulang), memakai parameter tanggal, dan pekerjaan beratnya dilakukan di BigQuery/Dataflow, bukan di worker Composer.",
+  [["Rerun job kemarin malah membuat data dobel.","Tulis dengan <code>WRITE_TRUNCATE</code> per partisi atau <code>MERGE</code>.","Idempotent: rerun tidak menghasilkan duplikat."],
+   ["Perlu memproses ulang 30 hari ke belakang.","<b>Backfill</b> DAG dengan parameter <code>{{ ds }}</code>.","DAG berparameter tanggal."],
+   ["Task Composer lama tertahan di status \"queued\".","Scale environment: tambah worker / concurrency.","Kapasitas worker kurang."],
+   ["Tunggu sampai file partner masuk ke GCS.","<b>Sensor</b> (GCS object sensor).","Task menunggu kondisinya terpenuhi."]],
+  [["Backfill","Menjalankan DAG untuk tanggal-tanggal lampau"],["Catchup","Opsi Airflow untuk menjalankan run yang terlewat"]],
+  []),
+ S("Monitoring & troubleshooting",
+  "Cloud Monitoring untuk metrik dan alert, Cloud Logging untuk log (bisa jadi metrik atau di-export), dan INFORMATION_SCHEMA.JOBS untuk forensik query BigQuery.",
+  [["Mau alert kalau pipeline streaming tertinggal.","Alert di Cloud Monitoring untuk <b>system lag / data freshness</b> Dataflow atau <b>oldest_unacked_message_age</b> Pub/Sub.","Metrik yang tepat."],
+   ["Query mana yang paling mahal bulan ini?","<b>INFORMATION_SCHEMA.JOBS</b> / admin resource charts.","Riwayat semua job."],
+   ["Muncul error 429 / quotaExceeded / rateLimitExceeded.","<mark>Exponential backoff</mark>, lalu minta tambahan quota kalau terus terjadi.","Retry dengan jeda yang makin panjang."],
+   ["Job gagal dengan pesan \"permission denied\".","Cek <b>service account</b> yang dipakai job, bukan akunmu sendiri.","Job berjalan dengan identitas service account."],
+   ["Log harus dianalisis dengan SQL.","<b>Log sink</b> ke BigQuery.","Sink juga bisa ke GCS (arsip) atau Pub/Sub (SIEM)."]],
+  [["Log-based metric","Metrik yang dibuat dari pola teks di log"],["Error Reporting / Trace","Exception aplikasi / latency request"]],
+  []),
+ S("Desain tahan gagal",
+  "Simpan data mentah yang tidak diubah-ubah, buat pipeline idempotent, kirim record rusak ke dead-letter, dan pilih replikasi sesuai RPO/RTO.",
+  [["Tabel BigQuery terhapus kemarin.","<b>Time travel</b> atau undelete (dalam 7 hari).","Pemulihan tercepat."],
+   ["Region BigQuery mati, dashboard kritis harus tetap jalan.","<b>Cross-region replication</b> / managed disaster recovery (Enterprise Plus).","Failover ke region lain."],
+   ["Ada bug di subscriber, mau proses ulang pesan.","Pub/Sub <b>seek</b> ke snapshot/timestamp.","Replay."],
+   ["Cluster Dataproc mati di tengah job.","Data ada di GCS, jadi cukup buat ulang cluster dan rerun job.","Storage terpisah dari compute."],
+   ["Data korup masuk dari sumber.","Validasi di ingest → dead-letter → proses ulang dari raw copy di GCS.","Ada salinan mentah untuk diproses ulang."]],
+  [["Idempotent","Kalau dijalankan berkali-kali, hasilnya tetap sama"],["Failover","Pindah otomatis ke cadangan"]],
+  [])
+]};
+})();
+
 /* PDE Academy — single-file offline app. Data in window.PDE (domains, lessons, questions, flashcards, tools). */
 (function(){
 "use strict";
@@ -1026,7 +1692,7 @@ const app = $("#app");
 
 /* ---------- state ---------- */
 let mem = null;
-function blank(){return {quiz:{},lessons:{},wrong:{},flash:{},days:[],exam:"",mocks:[],flags:{}};}
+function blank(){return {quiz:{},lessons:{},wrong:{},flash:{},days:[],exam:"",mocks:[],flags:{},read:{}};}
 function load(){
   try{const s=localStorage.getItem(KEY); if(s){const o=JSON.parse(s); return Object.assign(blank(),o);} }catch(e){}
   return mem || blank();
@@ -1069,7 +1735,7 @@ function record(q,correct){
   touch();
 }
 function nav(cur){
-  const it=[["home","⌂","Home"],["learn","▤","Learn"],["practice","✎","Practice"],["notebook","✕","Mistakes"],["progress","◔","Progress"]];
+  const it=[["home","⌂","Home"],["read","❏","Read"],["learn","▤","Learn"],["practice","✎","Practice"],["notebook","✕","Mistakes"]];
   return `<nav class="bn">${it.map(([h,i,t])=>`<a href="#${h}" class="${cur===h?"on":""}"><span class="i">${i}</span>${t}</a>`).join("")}</nav>`;
 }
 function render(html,cur){app.innerHTML=`<main>${html}</main>${nav(cur)}`; window.scrollTo(0,0);}
@@ -1088,6 +1754,7 @@ function vHome(){
       <div class="stat"><b>${streak()}🔥</b><small class="muted">day streak</small></div>
     </div>
     ${days===null?`<button class="btn ghost block" style="margin-top:10px;background:rgba(255,255,255,.14);color:#fff" onclick="PDEapp.setExam()">Set my exam date</button>`:""}
+    <a href="#progress" class="btn ghost block" style="margin-top:8px;background:rgba(255,255,255,.08);color:#fff">My progress &amp; backup ›</a>
   </div>
   ${nextL?`<div class="sec">Continue</div>
   <a class="tile" href="#lesson-${nextL.id}"><div class="ic" style="background:${dom(nextL.d).color}">${dom(nextL.d).n}</div><div class="tx"><b>${nextL.title}</b><small class="muted">${dom(nextL.d).short} · ${nextL.mins} min lesson</small></div><span class="chev">›</span></a>`:""}
@@ -1235,7 +1902,7 @@ function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.getFull
 let PK=null;
 function vTool(t){
   const tool=D.tools[t]; if(!tool) return go("practice");
-  if(t==="picker") return vPicker(tool);
+  if(tool.nodes){ if(!PK||PK.t!==t) PK={t,node:"start",path:[]}; return vPicker(tool);}
   if(t==="transfer") return vTransfer(tool);
   if(t==="windows") return vWindows(tool);
 }
@@ -1286,7 +1953,7 @@ function vWindows(tool){
   <div class="box brain"><div class="l">Exam brain</div>"Every N minutes" → fixed · "last N, updated every M" → sliding · "until the user goes idle" → session · "late data is missing" → raise allowed lateness.</div>`,"practice");
 }
 function vPicker(tool){
-  if(!PK) PK={node:"start",path:[]};
+  
   const n=tool.nodes[PK.node];
   if(n.result){
     return render(`${top(tool.title,"practice")}
@@ -1379,7 +2046,7 @@ function vMockResult(){
 /* progress & backup */
 function vProgress(){
   const tot=Object.keys(S.quiz).length, ok=Object.values(S.quiz).filter(r=>r.last).length;
-  render(`<h1>Progress</h1>
+  render(`${top("Progress","home")}
   <div class="grid2"><div class="stat"><b>${tot}</b><small class="muted">questions seen</small></div><div class="stat"><b>${tot?Math.round(ok/tot*100):0}%</b><small class="muted">latest accuracy</small></div>
   <div class="stat"><b>${Object.keys(S.lessons).length}</b><small class="muted">lessons done</small></div><div class="stat"><b>${streak()}🔥</b><small class="muted">day streak</small></div></div>
   <div class="sec">By domain</div><div class="card">${D.domains.map(d=>{if(!d.ready)return `<div style="margin:8px 0" class="muted">${d.n}. ${d.short}: coming soon</div>`;const s=domStats(d.id);return `<div style="margin:10px 0"><div class="row"><b style="flex:1;font-size:14px">${d.n}. ${d.short}</b><small>${readiness(d.id)}% ready</small></div><div class="bar"><i style="width:${readiness(d.id)}%;background:${d.color}"></i></div><small class="muted">${s.ldone}/${s.lessons} lessons · ${s.seen}/${s.total} questions · ${s.acc}% correct</small></div>`}).join("")}</div>
@@ -1392,12 +2059,49 @@ function vProgress(){
 }
 function sheet(html){const m=document.createElement("div");m.className="modal";m.innerHTML=`<div class="sheet">${html}</div>`;m.onclick=e=>{if(e.target===m)m.remove();};document.body.appendChild(m);return m;}
 
+
+/* reader */
+const GORDER=["d0","d3","d2","d1","d4","d5"];
+function gdone(g){const G=D.guides[g];return G.sections.filter((_,i)=>S.read[g+"-"+i]).length;}
+function vRead(){
+  render(`<h1>Read</h1><p class="muted">Ringkasan materi per domain dalam Bahasa Indonesia, berbasis kasus. Istilah teknis tetap English karena ujiannya English.</p>
+  ${window.PDE_PDF?`<a class="tile" href="PDE_Field_Guide.pdf" target="_blank" rel="noopener"><div class="ic" style="background:#dc2626">PDF</div><div class="tx"><b>PDE Field Guide (PDF lengkap)</b><small class="muted">39 halaman, English, dengan highlight · bisa dibuka offline</small></div><span class="chev">›</span></a>`:`<div class="card" style="font-size:14px"><b>PDF lengkap</b><p class="muted" style="margin-bottom:0">PDF Field Guide tersedia di app yang ter-install di HP (versi GitHub Pages).</p></div>`}
+  <div class="sec">Ringkasan + kasus (Indonesia)</div>
+  ${GORDER.map(g=>{const G=D.guides[g];if(!G)return "";const n=G.sections.length,dn=gdone(g);const dm=dom(g);
+    return `<a class="tile" href="#guide-${g}"><div class="ic" style="background:${G.color}">${dm?dm.n:"★"}</div><div class="tx"><b>${G.title}</b><small class="muted">${dn}/${n} bab dibaca${dm?` · ~${dm.w}% ujian`:""}</small><div class="bar"><i style="width:${dn/n*100}%;background:${G.color}"></i></div></div><span class="chev">›</span></a>`}).join("")}`,"read");
+}
+function vGuide(g){
+  const G=D.guides[g]; if(!G) return go("read");
+  render(`${top(G.title,"read")}
+  <div class="card" style="background:${G.color};color:#fff;border:none"><p style="margin:0">${G.intro}</p></div>
+  ${G.sections.map((s,i)=>`<a class="tile" href="#gs-${g}-${i}"><div class="ic" style="background:${S.read[g+"-"+i]?"var(--good)":G.color}">${S.read[g+"-"+i]?"✓":i+1}</div><div class="tx"><b>${s.t}</b><small class="muted">${s.cases.length} kasus · ${s.istilah.length} istilah</small></div><span class="chev">›</span></a>`).join("")}
+  ${dom(g)&&dom(g).ready?`<a class="btn block" href="#quiz-${g}" style="margin-top:10px">Latihan soal domain ini</a>`:""}`,"read");
+}
+function vGS(g,i){
+  const G=D.guides[g]; const s=G&&G.sections[i]; if(!s) return go("read");
+  const n=G.sections.length;
+  render(`${top(G.title,"guide-"+g)}
+  <div class="pill" style="background:${G.color};color:#fff">Bab ${i+1} / ${n}</div>
+  <h1 style="margin-top:8px">${s.t}</h1>
+  <div class="box pic"><div class="l">Intinya</div>${s.inti}</div>
+  ${s.cases.length?`<div class="sec">Kasus nyata</div>`+s.cases.map((c,k)=>`<div class="card" style="padding:14px"><div style="font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.08em">KASUS ${k+1}</div><p style="margin:4px 0 8px"><b>Situasi:</b> ${c[0]}</p><div style="border-left:3px solid ${G.color};padding-left:10px"><p style="margin:0 0 4px"><b>Jawaban:</b> ${c[1]}</p><p class="muted" style="margin:0;font-size:14px"><b>Kenapa:</b> ${c[2]}</p></div></div>`).join(""):""}
+  ${s.istilah.length?`<div class="sec">Istilah penting</div><div class="card" style="padding:8px 12px"><table>${s.istilah.map(t=>`<tr><td style="width:42%"><b>${t[0]}</b></td><td>${t[1]}</td></tr>`).join("")}</table></div>`:""}
+  ${s.ingat&&s.ingat.length?`<div class="box brain"><div class="l">Ingat ini</div><ul style="margin:0">${s.ingat.map(x=>`<li>${x}</li>`).join("")}</ul></div>`:""}
+  <div class="row" style="margin-top:12px">
+   <button class="btn ghost" style="flex:1" ${i===0?"disabled":""} onclick="location.hash='gs-${g}-${i-1}'">‹ Sebelumnya</button>
+   ${i<n-1?`<button class="btn" style="flex:2" onclick="PDEapp.gread('${g}',${i},true)">Selesai, lanjut ›</button>`:`<button class="btn good" style="flex:2" onclick="PDEapp.gread('${g}',${i},false)">Selesai bab terakhir ✓</button>`}
+  </div>`,"read");
+}
+
 /* ---------- router ---------- */
 function go(h){location.hash=h;}
 function route(){
   const h=(location.hash||"#home").slice(1);
   if(M&&!M.submitted&&!h.startsWith("mock")){ /* keep mock alive */ }
   if(h==="home")return vHome();
+  if(h==="read")return vRead();
+  if(h.startsWith("guide-"))return vGuide(h.slice(6));
+  if(h.startsWith("gs-")){const p=h.split("-");return vGS(p[1],+p[2]);}
   if(h==="learn")return vLearn();
   if(h==="practice")return vPractice();
   if(h==="notebook")return vNotebook();
@@ -1431,10 +2135,11 @@ window.PDEapp={
   flip(){F.flip=!F.flip;vFlash();},
   fc(ok){const id=F.list[F.i];const r=S.flash[id]||{box:0};r.box=ok?Math.min(r.box+1,INT.length-1):0;r.due=addDays(ok?INT[r.box]:1);S.flash[id]=r;if(ok)F.good++;touch();F.i++;F.flip=false;vFlash();},
   flashAll(){F={list:shuffle(D.flash.filter(c=>dom(c.d).ready)).map(c=>c.id),i:0,flip:false,good:0};vFlash();},
-  pk(i){const tool=D.tools.picker;const n=tool.nodes[PK.node];PK.path.push(n.q+" → "+n.opts[i][0]);PK.node=n.opts[i][1];vPicker(tool);},
-  pkReset(){PK=null;vPicker(D.tools.picker);},
+  pk(i){const tool=D.tools[PK.t];const n=tool.nodes[PK.node];PK.path.push(n.q+" → "+n.opts[i][0]);PK.node=n.opts[i][1];vPicker(tool);},
+  pkReset(){const t=PK.t;PK={t,node:"start",path:[]};vPicker(D.tools[t]);},
   tr(k,v){TR[k]=+v;vTransfer(D.tools.transfer);},
   wp(k,v){WP[k]=v;vWindows(D.tools.windows);},
+  gread(g,i,next){S.read[g+"-"+i]=true;touch();if(next)location.hash="gs-"+g+"-"+(i+1);else{toast("Semua bab selesai ✓");location.hash="guide-"+g;}},
   mockStart, mpick(i){const q=qById(M.list[M.i]);let s=M.ans[q.id]||[];if(q.ans.length>1){s=s.includes(i)?s.filter(x=>x!==i):(s.length<q.ans.length?[...s,i]:s);}else s=[i];M.ans[q.id]=s;try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}vMock();},
   mgo(i){M.i=i;vMock();}, mgrid(){vMock(true);},
   mflag(){const id=M.list[M.i];M.flag[id]=!M.flag[id];vMock();},
