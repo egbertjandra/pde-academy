@@ -129,10 +129,15 @@ textarea{min-height:110px}
 .opt.struck>span:last-child{text-decoration:line-through}
 .opt{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 
+table.duel{font-size:13px;table-layout:fixed}
+table.duel th{text-transform:none;font-size:13px;letter-spacing:0;text-align:left;padding:6px 5px}
+table.duel td{padding:5px 5px 8px;border-bottom:none;overflow-wrap:anywhere;word-break:break-word}
+table.duel td.dl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;padding-bottom:2px}
+
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
 </head><body><div id="app"></div><script>window.PDE_PDF=true</script>
 <script>window.PDE = {
-version: "2.3",
+version: "2.4",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -4322,6 +4327,190 @@ X.tools.recover={title:"Recovery Picker",sub:"Ada yang rusak: apa perbaikan terc
  }};
 })();
 
+(function(){
+/* Product duels: rows v[] entries are a string (same in both languages) or [en, id]. */
+const B=(en,id)=>({en,id});
+PDE.duels = [
+{id:"oltp-db",d:"d3",c:["Cloud SQL","Spanner","Bigtable"],
+ rows:[
+  {l:B("Model","Model"),v:[["Relational (MySQL/Postgres/SQL Server)","Relasional (MySQL/Postgres/SQL Server)"],["Relational, distributed","Relasional, terdistribusi"],["NoSQL wide-column","NoSQL wide-column"]]},
+  {l:B("Scale","Skala"),v:[["Scale up, ~tens of TB","Scale up, ~puluhan TB"],["Horizontal, PB, global","Horizontal, PB, global"],["Horizontal, PB","Horizontal, PB"]]},
+  {l:B("Transactions","Transaksi"),v:["Full ACID",["Full ACID, global strong consistency","Full ACID, strong consistency global"],["Single-row only","Hanya per baris"]]},
+  {l:B("Query","Query"),v:["SQL + joins","SQL + joins",["Row key / range only","Hanya row key / range"]]},
+  {l:B("Classic use","Contoh pemakaian"),v:[["Regional web app backend","Backend web app satu region"],["Banking, global inventory","Perbankan, inventory global"],["IoT, time series, ad tech","IoT, time series, ad tech"]]}],
+ decider:B("Relational + global or huge write scale → Spanner. Relational + regional → Cloud SQL. Key lookups at massive scale, no joins → Bigtable.","Relasional + global atau write sangat besar → Spanner. Relasional + satu region → Cloud SQL. Lookup per key di skala raksasa, tanpa join → Bigtable."),
+ trap:B("Bigtable has no multi-row transactions, so it's never the answer for \"must not double-spend\".","Bigtable tidak punya transaksi multi-baris, jadi tidak pernah jadi jawaban untuk \"tidak boleh double-spend\"."),
+ qs:[{q:"A regional MySQL app's writes have outgrown the largest machine, and users are now on 3 continents. What should you migrate to?",o:["Bigger Cloud SQL machine","Spanner","Bigtable"],a:1,w:B("Global users + write scale beyond one machine + relational = Spanner.","User global + write melebihi satu mesin + relasional = Spanner.")},
+     {q:"Store 5 TB/day of sensor readings, read by device and time range in <10 ms. No joins needed.",o:["Cloud SQL","Spanner","Bigtable"],a:2,w:B("Massive time-series writes with key-range reads is Bigtable's sweet spot.","Write time series yang masif dengan baca per range key adalah keahlian Bigtable.")}]},
+{id:"bq-bt",d:"d3",c:["BigQuery","Bigtable"],
+ rows:[
+  {l:B("Built for","Dibuat untuk"),v:[["Analytics (OLAP)","Analitik (OLAP)"],["Serving apps (operational)","Melayani aplikasi (operasional)"]]},
+  {l:B("Latency","Latency"),v:[["Seconds","Detik"],"< 10 ms"]},
+  {l:B("Query style","Gaya query"),v:[["SQL over many rows, aggregations","SQL di banyak baris, agregasi"],["Point / range lookups by row key","Lookup titik / range per row key"]]},
+  {l:B("Pricing","Harga"),v:[["Bytes scanned or slots","Byte yang di-scan atau slot"],["Nodes + storage","Node + storage"]]}],
+ decider:B("\"Dashboards / SQL analytics\" → BigQuery. \"App needs one row in milliseconds\" → Bigtable. Often both: Bigtable for serving, BigQuery for analysis.","\"Dashboard / analitik SQL\" → BigQuery. \"App butuh satu baris dalam milidetik\" → Bigtable. Sering keduanya: Bigtable untuk serving, BigQuery untuk analisis."),
+ trap:B("BigQuery is not an OLTP database, even though it supports DML.","BigQuery bukan database OLTP, walaupun mendukung DML."),
+ qs:[{q:"A mobile app must show a user's latest score instantly; analysts also need weekly trends across all users. Which pair fits?",o:["BigQuery only","Bigtable for the app + BigQuery for analytics","Cloud SQL only"],a:1,w:B("Two access patterns, two stores.","Dua pola akses, dua storage.")},
+     {q:"Which service charges on-demand by bytes scanned?",o:["Bigtable","BigQuery"],a:1,w:B("BigQuery on-demand bills per TiB scanned.","BigQuery on-demand ditagih per TiB yang di-scan.")}]},
+{id:"df-dp",d:"d2",c:["Dataflow","Dataproc"],
+ rows:[
+  {l:B("Engine","Engine"),v:["Apache Beam","Spark / Hadoop / Hive"]},
+  {l:B("Ops model","Model operasional"),v:[["Serverless, autoscaling","Serverless, autoscaling"],["Clusters (or Serverless Spark)","Cluster (atau Serverless Spark)"]]},
+  {l:B("Streaming","Streaming"),v:[["First-class (windows, watermarks)","Unggulan (window, watermark)"],["Spark Streaming, more DIY","Spark Streaming, lebih banyak diatur sendiri"]]},
+  {l:B("Best when","Paling cocok saat"),v:[["New pipelines, batch + stream","Pipeline baru, batch + stream"],["Existing Spark/Hadoop, minimal changes","Spark/Hadoop yang sudah ada, perubahan minimal"]]}],
+ decider:B("\"Existing Spark/Hadoop jobs\" → Dataproc. \"New, serverless, streaming + batch\" → Dataflow.","\"Spark/Hadoop yang sudah ada\" → Dataproc. \"Baru, serverless, streaming + batch\" → Dataflow."),
+ trap:B("Rewriting Spark to Beam is the wrong answer when the question says \"minimal changes\".","Menulis ulang Spark ke Beam adalah jawaban salah kalau soal bilang \"minimal changes\"."),
+ qs:[{q:"Migrate 200 PySpark jobs quickly with no code rewrite.",o:["Dataflow","Dataproc"],a:1,w:B("Lift & shift Spark = Dataproc.","Lift & shift Spark = Dataproc.")},
+     {q:"Build a new pipeline with event-time windows and late data handling, no clusters.",o:["Dataflow","Dataproc"],a:0,w:B("Serverless streaming with windows = Dataflow.","Streaming serverless dengan window = Dataflow.")}]},
+{id:"orch",d:"d2",c:["Cloud Composer","Workflows","Cloud Scheduler"],
+ rows:[
+  {l:B("What it is","Apa itu"),v:[["Managed Apache Airflow","Apache Airflow managed"],["Serverless step orchestration (YAML)","Orkestrasi langkah serverless (YAML)"],["Managed cron","Cron managed"]]},
+  {l:B("Complexity","Kompleksitas"),v:[["Complex DAGs, many services","DAG kompleks, banyak service"],["Short chains of API calls","Rangkaian API pendek"],["One trigger on a schedule","Satu trigger terjadwal"]]},
+  {l:B("Retries / backfill","Retry / backfill"),v:[["Yes, rich","Ya, lengkap"],["Retries, no backfill","Retry, tanpa backfill"],["No","Tidak"]]},
+  {l:B("Cost","Biaya"),v:[["Always-on environment","Environment selalu menyala"],["Pay per step","Bayar per langkah"],["Pennies","Sangat murah"]]}],
+ decider:B("Dependencies + retries + backfills → Composer. Light serverless API chain → Workflows. Just \"run X at 2 am\" → Scheduler.","Dependency + retry + backfill → Composer. Rangkaian API ringan serverless → Workflows. Sekadar \"jalankan X jam 2 pagi\" → Scheduler."),
+ trap:B("Composer for a single nightly trigger is overkill; Scheduler for a multi-step DAG is underkill.","Composer untuk satu trigger malam itu berlebihan. Scheduler untuk DAG multi-langkah itu kurang."),
+ qs:[{q:"Nightly: Dataproc job → BigQuery load → quality check, with retries and backfills.",o:["Cloud Scheduler","Workflows","Cloud Composer"],a:2,w:B("Multi-step DAG with backfills = Composer.","DAG multi-langkah dengan backfill = Composer.")},
+     {q:"Call two Cloud Run services in sequence 3 times a day, as cheaply as possible.",o:["Cloud Composer","Workflows (+ Scheduler)"],a:1,w:B("Light API chains = Workflows.","Rangkaian API ringan = Workflows.")}]},
+{id:"ps-kafka",d:"d2",c:["Pub/Sub","Managed Service for Apache Kafka"],
+ rows:[
+  {l:B("API","API"),v:[["Google Pub/Sub API","Google Pub/Sub API"],["Native Kafka API","Kafka API asli"]]},
+  {l:B("Ops","Operasional"),v:[["Fully serverless, global","Sepenuhnya serverless, global"],["Managed clusters (you size them)","Cluster managed (ukurannya kamu atur)"]]},
+  {l:B("Best when","Paling cocok saat"),v:[["New event pipelines, least ops","Pipeline event baru, minim ops"],["Existing Kafka apps, minimal change","Aplikasi Kafka yang sudah ada, perubahan minimal"]]},
+  {l:B("Ordering","Urutan"),v:[["Ordering keys","Ordering keys"],["Per partition","Per partisi"]]}],
+ decider:B("\"Keep our Kafka clients\" → Managed Kafka. \"Least operational overhead\" → Pub/Sub.","\"Tetap pakai client Kafka\" → Managed Kafka. \"Overhead operasional paling kecil\" → Pub/Sub."),
+ trap:B("Pub/Sub Lite is shut down; don't pick it.","Pub/Sub Lite sudah dimatikan, jangan dipilih."),
+ qs:[{q:"Hundreds of producers use the Kafka client library; migrate with no code changes and no broker management.",o:["Pub/Sub","Managed Service for Apache Kafka","Kafka on Compute Engine"],a:1,w:B("Kafka API + no brokers to run.","Kafka API + tidak perlu mengurus broker.")},
+     {q:"A new IoT project wants global ingestion with zero capacity planning.",o:["Pub/Sub","Managed Kafka"],a:0,w:B("Serverless, global, autoscaling.","Serverless, global, autoscaling.")}]},
+{id:"move-db",d:"d1",c:["Datastream","Database Migration Service","BigQuery DTS"],
+ rows:[
+  {l:B("Moves","Memindahkan"),v:[["Database changes (CDC)","Perubahan database (CDC)"],["A whole operational database","Seluruh database operasional"],["Warehouse / SaaS data","Data warehouse / SaaS"]]},
+  {l:B("Target","Tujuan"),v:["BigQuery, GCS","Cloud SQL, AlloyDB","BigQuery"]},
+  {l:B("Sources","Sumber"),v:["MySQL, Postgres, Oracle, SQL Server","MySQL, Postgres, SQL Server, Oracle","Teradata, Redshift, S3, Google Ads, YouTube…"]},
+  {l:B("Typical phrase","Frasa khas"),v:[["\"near real-time copy for analytics\"","\"salinan hampir real-time untuk analitik\""],["\"migrate with minimal downtime\"","\"migrasi dengan downtime minimal\""],["\"migrate our warehouse\" / \"load Ads data\"","\"migrasi warehouse\" / \"muat data Ads\""]]}],
+ decider:B("Analytics replica → Datastream. Move the OLTP database itself → DMS. Warehouse or SaaS into BigQuery → DTS.","Replika untuk analitik → Datastream. Pindahkan database OLTP-nya → DMS. Warehouse atau SaaS ke BigQuery → DTS."),
+ trap:B("DMS doesn't target BigQuery; Datastream doesn't move a database into Cloud SQL.","DMS tidak menuju BigQuery, dan Datastream tidak memindahkan database ke Cloud SQL."),
+ qs:[{q:"Keep a BigQuery copy of an Oracle OLTP database within minutes of the source.",o:["Database Migration Service","Datastream","BigQuery DTS"],a:1,w:B("CDC into BigQuery = Datastream.","CDC ke BigQuery = Datastream.")},
+     {q:"Move a Redshift warehouse to BigQuery.",o:["BigQuery DTS","Datastream","Database Migration Service"],a:0,w:B("Warehouse migration = BigQuery Data Transfer Service.","Migrasi warehouse = BigQuery Data Transfer Service.")}]},
+{id:"transfer",d:"d1",c:["Storage Transfer Service","Transfer Appliance"],
+ rows:[
+  {l:B("How","Cara"),v:[["Online, over the network","Online, lewat jaringan"],["Physical device you ship","Perangkat fisik yang dikirim"]]},
+  {l:B("Sources","Sumber"),v:["S3, Azure, HTTP, GCS, on-prem (agents)",["On-prem data center","Data center on-prem"]]},
+  {l:B("Scheduling","Penjadwalan"),v:[["Recurring, incremental","Berulang, incremental"],["One-time bulk","Sekali, dalam jumlah besar"]]},
+  {l:B("Pick when","Pilih saat"),v:[["Network can do it in days","Jaringan sanggup dalam hitungan hari"],["Would take weeks/months online","Lewat jaringan butuh berminggu-minggu/bulan"]]}],
+ decider:B("Do the math: 1 TB @ 100 Mbps ≈ 1 day. Too slow → Transfer Appliance; otherwise STS.","Hitung dulu: 1 TB @ 100 Mbps ≈ 1 hari. Terlalu lama → Transfer Appliance, selain itu STS."),
+ trap:B("Transfer Appliance isn't for recurring daily copies.","Transfer Appliance bukan untuk copy harian yang berulang."),
+ qs:[{q:"300 TB on-prem, 100 Mbps link, finish within a month.",o:["Storage Transfer Service","Transfer Appliance"],a:1,w:B("~300 days online, so ship it.","Lewat jaringan ~300 hari, jadi kirim fisik.")},
+     {q:"Copy new files from S3 to GCS every night.",o:["Storage Transfer Service","Transfer Appliance"],a:0,w:B("Recurring cloud-to-cloud = STS.","Berulang antar cloud = STS.")}]},
+{id:"bq-sec",d:"d4",c:["Authorized view","Row-level policy","Policy tags"],
+ rows:[
+  {l:B("Restricts","Membatasi"),v:[["Which source tables users can touch","Tabel sumber mana yang bisa disentuh user"],["Which rows","Baris mana"],["Which columns","Kolom mana"]]},
+  {l:B("User sees","User melihat"),v:[["Only the view's results","Hanya hasil view"],["Filtered rows of the real table","Baris terfilter dari tabel asli"],["Table minus protected columns (or masked)","Tabel tanpa kolom terlindung (atau di-mask)"]]},
+  {l:B("Lives","Berada di"),v:[["Separate dataset","Dataset terpisah"],["On the table","Di tabel"],["Taxonomy (Dataplex) on columns","Taxonomy (Dataplex) di kolom"]]},
+  {l:B("Phrase","Frasa"),v:[["\"share results, not raw tables\"","\"bagikan hasil, bukan tabel mentah\""],["\"each region sees its own rows\"","\"setiap region hanya melihat barisnya\""],["\"hide/mask the salary column\"","\"sembunyikan/mask kolom gaji\""]]}],
+ decider:B("Results only → authorized view. Rows → row-level policy. Columns → policy tags (+ dynamic masking).","Hanya hasil → authorized view. Baris → row-level policy. Kolom → policy tags (+ dynamic masking)."),
+ trap:B("\"One view per region\" works but is the high-maintenance wrong answer.","\"Satu view per region\" memang jalan, tapi itu jawaban salah karena sulit dirawat."),
+ qs:[{q:"Show phone numbers as last-4-digits to most users, full to fraud investigators.",o:["Authorized view","Row-level policy","Policy tags + dynamic data masking"],a:2,w:B("Column-level masking.","Masking di level kolom.")},
+     {q:"Sales managers only see their country's rows in one shared table.",o:["Row-level policy","Policy tags"],a:0,w:B("Row filtering per group.","Filter baris per group.")}]},
+{id:"bi-speed",d:"d4",c:["Logical view","Materialized view","BI Engine"],
+ rows:[
+  {l:B("Stores data?","Menyimpan data?"),v:[["No, re-runs SQL","Tidak, SQL dijalankan ulang"],["Yes, precomputed","Ya, dihitung di awal"],["In-memory cache","Cache di memori"]]},
+  {l:B("Speeds up","Mempercepat"),v:[["Nothing","Tidak ada"],["Repeated aggregations","Agregasi yang berulang"],["Interactive BI queries","Query BI interaktif"]]},
+  {l:B("Refresh","Refresh"),v:["—",["Automatic","Otomatis"],["Automatic","Otomatis"]]},
+  {l:B("Phrase","Frasa"),v:[["\"reuse logic / restrict columns\"","\"pakai ulang logika / batasi kolom\""],["\"same GROUP BY many times\"","\"GROUP BY yang sama berkali-kali\""],["\"sub-second dashboards\"","\"dashboard di bawah satu detik\""]]}],
+ decider:B("Speed for dashboards → BI Engine. Same aggregation over and over → materialized view. Logical views are for logic, not speed.","Kecepatan dashboard → BI Engine. Agregasi sama berulang → materialized view. Logical view untuk logika, bukan kecepatan."),
+ trap:B("A logical view doesn't reduce cost or latency.","Logical view tidak mengurangi biaya atau latency."),
+ qs:[{q:"Executives run the same revenue-by-region aggregation 50 times a day on a 20 TB table.",o:["Logical view","Materialized view","BI Engine"],a:1,w:B("Precomputed + auto-refresh + query rewrite.","Dihitung di awal + refresh otomatis + query rewrite.")},
+     {q:"300 users click filters in a Looker Studio dashboard and want sub-second responses.",o:["BI Engine","Logical view"],a:0,w:B("In-memory BI acceleration.","Akselerasi BI di memori.")}]},
+{id:"keys",d:"d1",c:["CMEK","CSEK","Cloud EKM"],
+ rows:[
+  {l:B("Key lives in","Kunci ada di"),v:["Cloud KMS (Google)",["You send it with each request","Kamu kirim di setiap request"],["External key manager, outside Google","Key manager eksternal, di luar Google"]]},
+  {l:B("Services","Layanan"),v:[["Most (BigQuery, GCS, Dataflow…)","Hampir semua (BigQuery, GCS, Dataflow…)"],["GCS + Compute Engine only","Hanya GCS + Compute Engine"],["Supported services via KMS","Layanan yang didukung lewat KMS"]]},
+  {l:B("Control","Kontrol"),v:[["Rotate, disable, destroy","Rotasi, disable, destroy"],["Full, but you manage the key bytes","Penuh, tapi kamu mengurus kuncinya sendiri"],["Full, keys never stored in Google","Penuh, kunci tidak pernah disimpan di Google"]]},
+  {l:B("Phrase","Frasa"),v:[["\"we must control/revoke keys\"","\"kami harus mengontrol/mencabut kunci\""],["rarely the best answer","jarang jadi jawaban terbaik"],["\"keys must stay outside Google\"","\"kunci harus tetap di luar Google\""]]}],
+ decider:B("Default compliance answer → CMEK. Keys outside Google → EKM. CSEK only for GCS/GCE niches.","Jawaban default untuk kepatuhan → CMEK. Kunci di luar Google → EKM. CSEK hanya untuk kasus khusus GCS/GCE."),
+ trap:B("CSEK + BigQuery is always wrong.","CSEK + BigQuery selalu salah."),
+ qs:[{q:"Compliance: revoke Google's ability to decrypt BigQuery data at any time.",o:["CMEK","CSEK","Default encryption"],a:0,w:B("Disable/destroy the KMS key.","Disable/destroy kunci KMS.")},
+     {q:"Regulator: encryption keys must never be stored in Google Cloud.",o:["Cloud HSM","Cloud EKM"],a:1,w:B("HSM is still in Google; EKM is external.","HSM tetap di Google; EKM ada di luar.")}]},
+{id:"perim",d:"d1",c:["IAM","VPC Service Controls","Private Google Access"],
+ rows:[
+  {l:B("Answers","Menjawab"),v:[["Who can do what?","Siapa boleh apa?"],["Can data leave this perimeter?","Bisakah data keluar dari perimeter ini?"],["Can internal-only VMs reach Google APIs?","Bisakah VM tanpa IP publik mengakses API Google?"]]},
+  {l:B("Stops stolen creds?","Menahan kredensial curian?"),v:[["No","Tidak"],["Yes, blocks exfiltration","Ya, memblokir exfiltration"],["No","Tidak"]]},
+  {l:B("Scope","Cakupan"),v:[["Org/folder/project/resource","Org/folder/project/resource"],["Group of projects + services","Sekelompok project + service"],["A VPC subnet","Satu subnet VPC"]]}],
+ decider:B("Permissions → IAM. Exfiltration → VPC-SC. Private connectivity to APIs → Private Google Access.","Izin → IAM. Exfiltration → VPC-SC. Konektivitas privat ke API → Private Google Access."),
+ trap:B("Tighter IAM doesn't stop someone who already holds valid stolen credentials.","IAM yang lebih ketat tidak menahan orang yang sudah memegang kredensial valid hasil curian."),
+ qs:[{q:"Prevent copying BigQuery data to outside projects even with valid credentials.",o:["IAM deny","VPC Service Controls","Private Google Access"],a:1,w:B("Service perimeter.","Service perimeter.")},
+     {q:"Dataflow workers have no external IPs but must reach GCS.",o:["Private Google Access","VPC Service Controls"],a:0,w:B("Internal-only VMs → Google APIs.","VM internal saja → API Google.")}]},
+{id:"stop-job",d:"d2",c:["Update","Drain","Cancel"],
+ rows:[
+  {l:B("Effect","Efek"),v:[["Replace code in place","Ganti kode di tempat"],["Stop reading, finish in-flight","Berhenti baca, selesaikan in-flight"],["Stop now","Langsung berhenti"]]},
+  {l:B("Data loss?","Data hilang?"),v:[["No, state kept","Tidak, state tetap"],["No","Tidak"],["In-flight data lost","Data in-flight hilang"]]},
+  {l:B("Use when","Pakai saat"),v:[["Compatible change","Perubahan kompatibel"],["Incompatible change / retire job","Perubahan tidak kompatibel / mematikan job"],["Emergency only","Hanya darurat"]]}],
+ decider:B("Compatible → update. Incompatible but no loss → drain then new job. Cancel only if losing in-flight data is OK.","Kompatibel → update. Tidak kompatibel tapi tanpa kehilangan data → drain lalu job baru. Cancel hanya kalau data in-flight boleh hilang."),
+ trap:B("\"Cancel and restart\" loses in-flight data.","\"Cancel lalu restart\" menghilangkan data in-flight."),
+ qs:[{q:"Change the windowing strategy (incompatible) without losing data.",o:["--update","Drain + new job","Cancel + new job"],a:1,w:B("Drain finishes buffered data.","Drain menyelesaikan data yang tertahan.")},
+     {q:"Fix a bug inside a DoFn, same graph, keep state.",o:["--update","Drain"],a:0,w:B("Compatible change → update.","Perubahan kompatibel → update.")}]},
+{id:"windows",d:"d2",c:["Fixed","Sliding","Session"],
+ rows:[
+  {l:B("Shape","Bentuk"),v:[["Equal, non-overlapping","Sama besar, tidak tumpang tindih"],["Overlapping (size + period)","Tumpang tindih (size + period)"],["Per key, closes after a gap","Per key, ditutup setelah jeda"]]},
+  {l:B("Event in how many windows","Event masuk berapa window"),v:["1",["Several","Beberapa"],"1"]},
+  {l:B("Phrase","Frasa"),v:[["\"every 5 minutes\"","\"setiap 5 menit\""],["\"last hour, updated every minute\"","\"1 jam terakhir, update tiap menit\""],["\"until the user is idle 30 min\"","\"sampai user idle 30 menit\""]]}],
+ decider:B("Buckets → fixed. Moving average → sliding. Visits/sessions → session.","Ember waktu → fixed. Moving average → sliding. Kunjungan/sesi → session."),
+ trap:B("Session windows are per key; they don't make sense without a key like user_id.","Session window itu per key, jadi tidak masuk akal tanpa key seperti user_id."),
+ qs:[{q:"Average CPU over the last 10 minutes, refreshed every minute.",o:["Fixed","Sliding","Session"],a:1,w:B("Overlapping moving window.","Window bergerak yang tumpang tindih.")},
+     {q:"Group a shopper's clicks until 15 minutes of inactivity.",o:["Session","Fixed"],a:0,w:B("Gap-based per user.","Berbasis jeda per user.")}]},
+{id:"ml-tool",d:"d4",c:["Pre-trained API","AutoML","BigQuery ML"],
+ rows:[
+  {l:B("Training needed","Perlu training"),v:[["None","Tidak ada"],["Yes, Google does it","Ya, Google yang melatih"],["Yes, with SQL","Ya, dengan SQL"]]},
+  {l:B("Who uses it","Siapa yang pakai"),v:[["App developers","Developer aplikasi"],["Engineers with labelled data","Engineer dengan data berlabel"],["SQL analysts","Analis SQL"]]},
+  {l:B("Data","Data"),v:[["Any (images, text, audio, docs)","Apa saja (gambar, teks, audio, dokumen)"],["Your labelled data","Data berlabel milikmu"],["Tables already in BigQuery","Tabel yang sudah ada di BigQuery"]]},
+  {l:B("Phrase","Frasa"),v:[["\"no ML team\", \"common task\"","\"tidak ada tim ML\", \"tugas umum\""],["\"custom labels, little code\"","\"label custom, minim kode\""],["\"analysts know SQL\"","\"analis bisa SQL\""]]}],
+ decider:B("Common task → API. Custom + low code → AutoML. SQL users + BigQuery data → BigQuery ML. Full control → Vertex custom training.","Tugas umum → API. Custom + minim kode → AutoML. User SQL + data BigQuery → BigQuery ML. Kontrol penuh → Vertex custom training."),
+ trap:B("Don't train a custom model for something the Vision/NL/Document AI APIs already do.","Jangan melatih model custom untuk hal yang sudah bisa dilakukan Vision/NL/Document AI API."),
+ qs:[{q:"Extract fields from scanned invoices, no data scientists.",o:["Document AI","AutoML","BigQuery ML"],a:0,w:B("Pre-trained document parsing.","Parsing dokumen siap pakai.")},
+     {q:"Analysts want churn predictions from BigQuery tables using SQL.",o:["BigQuery ML","Vertex custom training"],a:0,w:B("ML where the data lives, in SQL.","ML di tempat datanya berada, pakai SQL.")}]},
+{id:"predict",d:"d4",c:["Online prediction","Batch prediction"],
+ rows:[
+  {l:B("Latency","Latency"),v:[["Milliseconds, per request","Milidetik, per request"],["Minutes–hours, per job","Menit–jam, per job"]]},
+  {l:B("Volume","Volume"),v:[["One or a few rows at a time","Satu atau beberapa baris sekaligus"],["Millions of rows","Jutaan baris"]]},
+  {l:B("Output","Output"),v:[["HTTP response","Response HTTP"],["Files in GCS / BigQuery table","File di GCS / tabel BigQuery"]]}],
+ decider:B("A user is waiting → online. Nightly scoring of everyone → batch.","Ada user yang menunggu → online. Scoring semua orang tiap malam → batch."),
+ trap:B("Calling an online endpoint 200M times for a nightly job is slow and expensive.","Memanggil endpoint online 200 juta kali untuk job malam itu lambat dan mahal."),
+ qs:[{q:"Fraud score needed within 100 ms at checkout.",o:["Online","Batch"],a:0,w:B("Synchronous, low latency.","Sinkron, latency rendah.")},
+     {q:"Score all 50M customers every night into BigQuery.",o:["Online","Batch"],a:1,w:B("Asynchronous bulk.","Massal dan asinkron.")}]},
+{id:"bq-recover",d:"d5",c:["Time travel","Table snapshot","Table clone"],
+ rows:[
+  {l:B("Window","Jangka waktu"),v:[["Last 2–7 days","2–7 hari terakhir"],["As long as you keep it","Selama kamu simpan"],["As long as you keep it","Selama kamu simpan"]]},
+  {l:B("Writable?","Bisa diubah?"),v:[["Read past state","Baca kondisi lampau"],["No (read-only)","Tidak (read-only)"],["Yes","Ya"]]},
+  {l:B("Cost","Biaya"),v:[["Included","Sudah termasuk"],["Only changed data","Hanya data yang berubah"],["Only changed data","Hanya data yang berubah"]]},
+  {l:B("Phrase","Frasa"),v:[["\"bad UPDATE this morning\"","\"UPDATE salah tadi pagi\""],["\"keep monthly backups for a year\"","\"simpan backup bulanan setahun\""],["\"test copy for data scientists\"","\"copy untuk testing data scientist\""]]}],
+ decider:B("Undo within a week → time travel. Long-term backup → snapshot. Writable sandbox → clone.","Undo dalam seminggu → time travel. Backup jangka panjang → snapshot. Sandbox yang bisa diubah → clone."),
+ trap:B("Fail-safe isn't self-service; it's a 7-day window after time travel, via support.","Fail-safe bukan self-service. Itu jendela 7 hari setelah time travel, lewat support."),
+ qs:[{q:"Restore a table dropped 3 hours ago.",o:["Time travel","Fail-safe ticket","Snapshot from last year"],a:0,w:B("Within the time-travel window.","Masih dalam jendela time travel.")},
+     {q:"Cheap writable copy of a 30 TB table for experiments.",o:["Table snapshot","Table clone"],a:1,w:B("Clones are writable.","Clone bisa diubah.")}]},
+{id:"gcs-class",d:"d3",c:["Nearline","Coldline","Archive"],
+ rows:[
+  {l:B("Minimum duration","Durasi minimum"),v:[["30 days","30 hari"],["90 days","90 hari"],["365 days","365 hari"]]},
+  {l:B("Access pattern","Pola akses"),v:[["~Monthly","~Bulanan"],["~Quarterly","~Kuartalan"],["< yearly","< setahun sekali"]]},
+  {l:B("Read speed","Kecepatan baca"),v:[["Milliseconds","Milidetik"],["Milliseconds","Milidetik"],["Milliseconds","Milidetik"]]},
+  {l:B("Typical data","Data khas"),v:[["Monthly-restored backups","Backup yang di-restore bulanan"],["DR copies","Salinan DR"],["Compliance archives","Arsip kepatuhan"]]}],
+ decider:B("Pick the class from how often it's read. Unknown pattern → Autoclass. Must not be deleted → add Bucket Lock.","Pilih kelas dari seberapa sering dibaca. Pola tidak jelas → Autoclass. Tidak boleh dihapus → tambahkan Bucket Lock."),
+ trap:B("Archive is not slow to read, it's expensive to read.","Archive bukan lambat dibaca, tapi mahal dibaca."),
+ qs:[{q:"Legal archive kept 10 years, almost never read.",o:["Nearline","Coldline","Archive"],a:2,w:B("Cheapest storage for <1 read per year.","Storage termurah untuk dibaca <1x setahun.")},
+     {q:"Backups restored for testing about once a month.",o:["Nearline","Archive"],a:0,w:B("Monthly access = Nearline.","Akses bulanan = Nearline.")}]},
+{id:"bq-price",d:"d5",c:["On-demand","Editions (reservations)"],
+ rows:[
+  {l:B("You pay for","Yang dibayar"),v:[["TiB scanned","TiB yang di-scan"],["Slot-hours (baseline + autoscaling)","Slot-hour (baseline + autoscaling)"]]},
+  {l:B("Predictable?","Bisa diprediksi?"),v:[["No","Tidak"],["Yes","Ya"]]},
+  {l:B("Isolation","Isolasi"),v:[["Shared pool","Pool bersama"],["Separate reservations per workload","Reservation terpisah per workload"]]},
+  {l:B("Best when","Paling cocok saat"),v:[["Spiky / small workloads","Workload naik-turun / kecil"],["Steady heavy use, budgets","Pemakaian berat stabil, budget"]]}],
+ decider:B("Unpredictable bill + steady load or noisy neighbours → Editions reservations. Small or spiky → on-demand.","Tagihan tidak terprediksi + beban stabil atau saling ganggu → reservation Editions. Kecil atau naik-turun → on-demand."),
+ trap:B("\"Flat-rate\" is retired; the modern answer is Editions.","\"Flat-rate\" sudah pensiun; jawaban modernnya Editions."),
+ qs:[{q:"Nightly ETL slows morning dashboards; both share capacity.",o:["More on-demand projects","Separate reservations for ETL and BI"],a:1,w:B("Workload isolation.","Isolasi workload.")},
+     {q:"A small team runs a few ad-hoc queries a week.",o:["On-demand","Editions with a 3-year commitment"],a:0,w:B("Pay only for what you scan.","Bayar hanya yang di-scan.")}]}
+];
+})();
+
 /* PDE Academy — single-file offline app (bilingual EN/ID). Data in window.PDE. */
 (function(){
 "use strict";
@@ -4459,6 +4648,7 @@ function vDomain(id){
   <div class="sec">${T("Lessons","Pelajaran")}</div>
   ${d.lessons.map((l,i)=>`<a class="tile" href="#lesson-${l.id}"><div class="ic" style="background:${S.lessons[l.id]?"var(--good)":d.color}">${S.lessons[l.id]?"✓":i+1}</div><div class="tx"><b>${lz(l).title}</b><small class="muted">${l.mins} ${T("min","menit")}</small></div><span class="chev">›</span></a>`).join("")}
   ${(d.tools||[]).length?`<div class="sec">${T("Interactive tools","Tool interaktif")}</div>`+d.tools.map(t=>`<a class="tile" href="#tool-${t}"><div class="ic" style="background:#0f766e">⚙</div><div class="tx"><b>${tl(t).title}</b><small class="muted">${tl(t).sub}</small></div><span class="chev">›</span></a>`).join(""):""}
+  ${(D.duels||[]).filter(x=>x.d===id).length?`<div class="sec">${T("Product duels","Duel produk")}</div>`+(D.duels||[]).filter(x=>x.d===id).map(duelTile).join(""):""}
   <div class="sec">${T("Practice","Latihan")}</div>
   <a class="tile" href="#quiz-${id}"><div class="ic" style="background:#4f46e5">Q</div><div class="tx"><b>${T("Domain quiz","Kuis domain")}</b><small class="muted">${s.total} ${T("questions","soal")} · ${s.seen} ${T("seen","dilihat")} · ${s.acc}% ${T("correct","benar")}</small></div><span class="chev">›</span></a>
   <a class="tile" href="#quizn-${id}"><div class="ic" style="background:#7c3aed">★</div><div class="tx"><b>${T("Only new or wrong","Hanya yang baru atau salah")}</b><small class="muted">${T("Skip what you've already mastered","Lewati yang sudah dikuasai")}</small></div><span class="chev">›</span></a>
@@ -4560,6 +4750,7 @@ function vPractice(){
   <div class="sec">Drills</div>
   <a class="tile" href="#daily"><div class="ic" style="background:#4f46e5">10</div><div class="tx"><b>Daily 10</b><small class="muted">${T("Random mix","Campuran acak")}</small></div><span class="chev">›</span></a>
   <a class="tile" href="#flash"><div class="ic" style="background:#0f766e">FC</div><div class="tx"><b>Flashcards</b><small class="muted">${dueCards().length} ${T("due · spaced repetition","jatuh tempo · spaced repetition")}</small></div><span class="chev">›</span></a>
+  <a class="tile" href="#duels"><div class="ic" style="background:#7c3aed;font-size:13px">VS</div><div class="tx"><b>${T("Product duels","Duel produk")}</b><small class="muted">${(D.duels||[]).length} ${T("side-by-side comparisons of look-alike services","perbandingan layanan yang mirip-mirip")}</small></div><span class="chev">›</span></a>
   ${Object.keys(D.tools).map(t=>`<a class="tile" href="#tool-${t}"><div class="ic" style="background:#0f766e">⚙</div><div class="tx"><b>${tl(t).title}</b><small class="muted">${tl(t).sub}</small></div><span class="chev">›</span></a>`).join("")}
   <div class="sec">${T("Exam simulation","Simulasi ujian")}</div>
   ${D.mocks.map(m=>{const ok=mockAvail(m);return `<a class="tile ${ok?"":"locked"}" href="${ok?"#mockintro-"+m.id:"#practice"}"><div class="ic" style="background:#171a26">M</div><div class="tx"><b>${mTitle(m)}</b><small class="muted">${ok?`${m.n} ${T("questions","soal")} · ${m.min} ${T("min","menit")}${mDesc(m)?" · "+mDesc(m):" · "+T("no hints until the end","tanpa petunjuk sampai selesai")}`:m.lockText}</small></div><span class="chev">${ok?"›":"🔒"}</span></a>`}).join("")}
@@ -4948,6 +5139,35 @@ function askExam(){
     k.querySelector("#r").onclick=()=>{k.remove();RL=null;location.hash="random";};};
 }
 
+
+/* product duels */
+const dv = v => Array.isArray(v)?T(v[0],v[1]):v;
+const bl = o => o?T(o.en,o.id):"";
+let DQ=null;
+function duelTile(du){const d=dom(du.d);return `<a class="tile" href="#duel-${du.id}"><div class="ic" style="background:${d.color};font-size:13px">VS</div><div class="tx"><b>${du.c.join(" vs ")}</b><small class="muted">${dShort(d)}</small></div><span class="chev">›</span></a>`;}
+function vDuels(){
+  render(`${top(T("Product duels","Duel produk"),"practice")}<p class="muted">${T("Side-by-side comparisons of the services the exam loves to mix up. One table, one deciding rule, two quick checks.","Perbandingan berdampingan untuk layanan yang sering sengaja dibuat tertukar di ujian. Satu tabel, satu aturan penentu, dua soal cepat.")}</p>
+  ${D.order.map(id=>{const list=(D.duels||[]).filter(x=>x.d===id);if(!list.length)return "";return `<div class="sec">${dom(id).n}. ${dShort(dom(id))}</div>`+list.map(duelTile).join("");}).join("")}`,"practice");
+}
+function vDuel(id){
+  const du=(D.duels||[]).find(x=>x.id===id); if(!du) return go("duels");
+  if(!DQ||DQ.id!==id) DQ={id,picks:{}};
+  const d=dom(du.d), n=du.c.length;
+  const table=`<table class="duel"><tr>${du.c.map(c=>`<th style="color:${d.color}">${c}</th>`).join("")}</tr>
+   ${du.rows.map(r=>`<tr><td colspan="${n}" class="dl">${bl(r.l)}</td></tr><tr>${r.v.map(v=>`<td>${dv(v)}</td>`).join("")}</tr>`).join("")}</table>`;
+  const qs=du.qs.map((q,qi)=>{const pk=DQ.picks[qi];
+    return `<div class="card"><div class="pill">${T("Quick check","Cek cepat")} ${qi+1}</div><p style="margin:8px 0">${q.q}</p>
+    ${q.o.map((o,i)=>{let cls="";if(pk!==undefined)cls=i===q.a?"ok":(i===pk?"no":"");return `<button class="opt ${cls}" ${pk!==undefined?"disabled":""} onclick="PDEapp.dq(${qi},${i})"><span class="k">${L[i]}</span><span>${o}</span></button>`}).join("")}
+    ${pk!==undefined?`<div class="verdict ${pk===q.a?"ok":"no"}">${pk===q.a?T("Correct!","Benar!"):T("Not quite.","Belum tepat.")}</div><p class="muted" style="margin:0">${bl(q.w)}</p>`:""}</div>`;}).join("");
+  render(`${top(du.c.join(" vs "),"duels")}
+  <div class="card" style="background:${d.color};color:#fff;border:none"><small style="opacity:.85;color:#fff">${T("Product duel","Duel produk")} · ${dShort(d)}</small><h2 style="margin:4px 0 0">${du.c.join(" <span style='opacity:.7'>vs</span> ")}</h2></div>
+  <div class="card" style="padding:8px 10px;overflow-x:auto">${table}</div>
+  <div class="box brain"><div class="l">${T("The deciding rule","Aturan penentu")}</div>${bl(du.decider)}</div>
+  <div class="box trap"><div class="l">Trap</div>${bl(du.trap)}</div>
+  ${qs}
+  <a class="btn ghost block" href="#duels">${T("All duels","Semua duel")}</a>`,"practice");
+}
+
 /* ---------- router ---------- */
 function go(h){location.hash=h;}
 function route(){
@@ -4956,6 +5176,8 @@ function route(){
   if(h==="read")return vRead();
   if(h==="plan")return vPlan();
   if(h==="random")return vRandom();
+  if(h==="duels")return vDuels();
+  if(h.startsWith("duel-")){return vDuel(h.slice(5));}
   if(h.startsWith("guide-"))return vGuide(h.slice(6));
   if(h.startsWith("gs-")){const p=h.split("-");return vGS(p[1],+p[2]);}
   if(h==="learn")return vLearn();
@@ -4992,6 +5214,7 @@ window.PDEapp={
     else{const q=qById(M.list[M.i]);M.strike=M.strike||{};let a=M.strike[q.id]||[];a=a.includes(i)?a.filter(x=>x!==i):[...a,i];M.strike[q.id]=a;
       if(a.includes(i)&&M.ans[q.id])M.ans[q.id]=M.ans[q.id].filter(x=>x!==i);try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}vMock();}},
   rl(){RL=null;},
+  dq(qi,i){DQ.picks[qi]=i;touch();vDuel(DQ.id);},
   reroll(){RL=pickRandomLesson();vRandom();},
   open(i){LS.opened=i;vLesson(LS.id);},
   lstep(n){LS.step+=n;vLesson(LS.id);},
