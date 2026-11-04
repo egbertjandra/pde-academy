@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b1e3a">
+<title>PDE Academy</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PDE Academy">
+<style>:root{
+  --bg:#f5f6fb;--card:#fff;--ink:#171a26;--muted:#646b7d;--line:#e4e7ef;--soft:#eef0f7;
+  --accent:#4f46e5;--good:#15a34a;--goodl:#e7f7ec;--bad:#dc2626;--badl:#fdecec;--warn:#b7791f;
+  --d1:#4f46e5;--d2:#0891b2;--d3:#16a34a;--d4:#d97706;--d5:#db2777;
+  --hl:#ffe885;--shadow:0 1px 2px rgba(20,25,50,.06),0 4px 14px rgba(20,25,50,.05);
+  --r:16px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0f111a;--card:#181b27;--ink:#eceef6;--muted:#9aa1b4;--line:#2a2e3d;--soft:#22263a;
+  --goodl:#0f2a1a;--badl:#2d1212;--hl:#5b4a00;--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+main{max-width:680px;margin:0 auto;padding:16px 16px 24px}
+h1,h2,h3{line-height:1.2;margin:0 0 8px;letter-spacing:-.01em}
+h1{font-size:26px}h2{font-size:20px}h3{font-size:17px}
+p{margin:6px 0 10px}
+a{color:inherit}
+small,.muted{color:var(--muted)}
+code{font:13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--soft);padding:1px 5px;border-radius:5px}
+mark{background:linear-gradient(180deg,transparent 10%,var(--hl) 10%,var(--hl) 95%,transparent 95%);color:inherit;padding:0 2px;border-radius:3px}
+ul{padding-left:20px;margin:6px 0 10px}li{margin:3px 0}
+
+.top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.back{border:none;background:var(--card);box-shadow:var(--shadow);width:38px;height:38px;border-radius:12px;font-size:20px;color:var(--ink);cursor:pointer}
+.top .t{font-weight:700;font-size:17px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.card{background:var(--card);border-radius:var(--r);padding:16px;box-shadow:var(--shadow);margin:12px 0;border:1px solid var(--line)}
+.hero{background:linear-gradient(135deg,#1b1e3a,#3b2f86 60%,#7a2f6b);color:#fff;border:none}
+.hero .muted{color:#c9cdf0}
+.row{display:flex;gap:10px;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--soft);border-radius:12px;padding:10px 12px}
+.hero .stat{background:rgba(255,255,255,.1)}
+.stat b{display:block;font-size:22px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:12px;padding:12px 16px;font:600 15px system-ui,sans-serif;cursor:pointer;background:var(--accent);color:#fff;text-decoration:none}
+.btn.block{width:100%}
+.btn.ghost{background:var(--soft);color:var(--ink)}
+.btn.good{background:var(--good)}.btn.bad{background:var(--bad)}
+.btn:disabled{opacity:.45;cursor:default}
+.tile{display:flex;align-items:center;gap:12px;padding:14px;border-radius:14px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);margin:10px 0;cursor:pointer;text-decoration:none;color:var(--ink)}
+.tile .ic{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex:none;font-size:15px}
+.tile .tx{flex:1;min-width:0}.tile .tx b{display:block}.tile .tx small{display:block}
+.tile.locked{opacity:.55}
+.chev{color:var(--muted);font-size:20px}
+.bar{height:8px;background:var(--soft);border-radius:99px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--muted);text-transform:uppercase}
+.pill.done{background:var(--goodl);color:var(--good)}
+.sec{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:22px 0 4px}
+
+/* lesson cards */
+.lcard{min-height:52vh}
+.lcard h2{margin-bottom:10px}
+.box{border-radius:12px;padding:10px 12px;margin:12px 0;border:1px solid var(--line);background:var(--soft)}
+.box .l{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:3px}
+.box.brain{background:#f2edff;border-color:#ddd0fb}.box.brain .l{color:#7c3aed}
+.box.trap{background:#fff0f0;border-color:#f6cccc}.box.trap .l{color:#dc2626}
+.box.pic{background:#eaf7f4;border-color:#c5e7e1}.box.pic .l{color:#0f766e}
+@media (prefers-color-scheme:dark){.box.brain{background:#231b3d;border-color:#3b2d66}.box.trap{background:#2d1616;border-color:#5b2a2a}.box.pic{background:#10292a;border-color:#1f4a47}}
+.dots{display:flex;gap:6px;justify-content:center;margin:12px 0}
+.dots i{width:7px;height:7px;border-radius:99px;background:var(--line)}
+.dots i.on{background:var(--accent);width:20px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+
+/* quiz */
+.qmeta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-bottom:8px}
+.qstem{font-size:16.5px;margin:4px 0 14px}
+.opt{display:flex;gap:10px;width:100%;text-align:left;padding:13px 14px;border-radius:13px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:15px/1.45 system-ui,sans-serif;margin:8px 0;cursor:pointer}
+.opt .k{flex:none;width:24px;height:24px;border-radius:8px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.opt.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+.opt.sel .k{background:var(--accent);color:#fff}
+.opt.ok{border-color:var(--good);background:var(--goodl)}.opt.ok .k{background:var(--good);color:#fff}
+.opt.no{border-color:var(--bad);background:var(--badl)}.opt.no .k{background:var(--bad);color:#fff}
+.opt .why{display:block;font-size:13.5px;color:var(--muted);margin-top:6px}
+.opt.ok .why,.opt.no .why{color:var(--ink);opacity:.85}
+.verdict{font-weight:800;font-size:18px;margin:10px 0 2px}
+.verdict.ok{color:var(--good)}.verdict.no{color:var(--bad)}
+.flag{border:none;background:var(--soft);color:var(--ink);border-radius:10px;padding:6px 10px;font:600 13px system-ui;cursor:pointer}
+.flag.on{background:#fff2c2;color:#8a6100}
+.sticky{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom));padding:10px 0;background:linear-gradient(transparent,var(--bg) 30%)}
+.navgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:6px;margin:10px 0}
+.navgrid button{height:38px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-weight:600;cursor:pointer}
+.navgrid button.ans{background:var(--soft)}.navgrid button.fl{background:#fff2c2;color:#8a6100}.navgrid button.cur{outline:2px solid var(--accent)}
+.timer{font:700 15px ui-monospace,Menlo,monospace;background:var(--soft);padding:5px 10px;border-radius:10px}
+.timer.low{background:var(--badl);color:var(--bad)}
+
+/* flashcards */
+.flip{perspective:1000px;margin:14px 0}
+.flip .in{position:relative;min-height:240px;transition:transform .45s;transform-style:preserve-3d;cursor:pointer}
+.flip.f .in{transform:rotateY(180deg)}
+.flip .fc{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;padding:22px;display:flex;flex-direction:column;justify-content:center;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);font-size:18px}
+.flip .fc.b{transform:rotateY(180deg);background:#1b1e3a;color:#fff}
+.flip .fc small{position:absolute;top:14px;left:18px;font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+
+/* picker */
+.pk .opt{font-weight:600}
+.result{border-radius:18px;padding:18px;color:#fff;background:var(--d3)}
+.result h2{font-size:26px;margin:4px 0}
+
+/* bottom nav */
+nav.bn{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:9}
+nav.bn a{flex:1;text-align:center;text-decoration:none;color:var(--muted);font-size:11.5px;font-weight:600;padding:4px 0}
+nav.bn a .i{display:block;font-size:20px;line-height:1.2}
+nav.bn a.on{color:var(--accent)}
+.modal{position:fixed;inset:0;background:rgba(10,12,25,.55);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.modal .sheet{background:var(--card);width:100%;max-width:680px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+textarea,input[type=date]{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px;font:14px system-ui;background:var(--bg);color:var(--ink)}
+textarea{min-height:110px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:#171a26;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:30}
+
+main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
+</head><body><div id="app"></div>
+<script>window.PDE = {
+version: "1.0",
+order: ["d3","d2","d1","d4","d5"],
+domains: [
+ {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
+  blurb:"Security, compliance, reliability, portability and migrations."},
+ {id:"d2",n:2,w:25,color:"#0891b2",short:"Ingesting & processing",name:"Ingesting and processing the data",ready:false,lessons:[],tools:[],
+  blurb:"Pub/Sub, Dataflow, Dataproc, Data Fusion, Composer and streaming concepts."},
+ {id:"d3",n:3,w:20,color:"#16a34a",short:"Storing",name:"Storing the data",ready:true,lessons:[],tools:["picker"],
+  blurb:"Picking the right database is the most tested skill on the PDE. Master this and a third of the exam gets easier."},
+ {id:"d4",n:4,w:15,color:"#d97706",short:"Analysis & ML",name:"Preparing and using data for analysis",ready:false,lessons:[],tools:[],
+  blurb:"BI performance, data security for sharing, BigQuery ML, Vertex AI and GenAI."},
+ {id:"d5",n:5,w:18,color:"#db2777",short:"Maintaining",name:"Maintaining and automating data workloads",ready:false,lessons:[],tools:[],
+  blurb:"Cost, capacity, orchestration, monitoring and designing for failure."}
+],
+questions: [],
+flash: [],
+mocks: [
+ {id:"mini-d3",title:"Mini mock · Storing",n:10,min:15,domains:["d3"],lockText:"Needs 10 mock questions"},
+ {id:"full-1",title:"Full mock exam #1",n:50,min:120,lockText:"Unlocks when all 5 domains are ready"},
+ {id:"full-2",title:"Full mock exam #2",n:50,min:120,lockText:"Unlocks after the full question bank is ready"}
+],
+tools: {
+ picker: {title:"Storage Picker",sub:"Answer a few questions, get the right GCP storage service",
+  intro:"Read an exam scenario, then answer these questions the way the scenario would. This is the decision process you should run in your head on exam day.",
+  nodes:{
+   start:{q:"What are you storing?",opts:[["Files, images, logs, backups, raw data lake","obj"],["Data for analytics, reporting or a warehouse (SQL over lots of rows)","ana"],["Operational data an application reads and writes","op"],["A temporary cache, sessions or a leaderboard","cache"]]},
+   obj:{q:"How often will the data be read?",opts:[["Often (hot data, active pipelines)","gStd"],["About once a month","gNear"],["About once a quarter","gCold"],["Less than once a year (compliance archive)","gArc"],["Unpredictable, it changes over time","gAuto"]]},
+   gStd:{result:"Cloud Storage · Standard",why:"No minimum storage duration and the cheapest reads. Right for hot data and data-lake landing zones.",keys:"data lake, staging, Dataproc/BigQuery shared storage",trap:"Need to keep it unchangeable for years? Add a retention policy + Bucket Lock."},
+   gNear:{result:"Cloud Storage · Nearline",why:"Cheaper storage, 30-day minimum, small retrieval fee. Classic for monthly-accessed backups.",keys:"backups, accessed once a month"},
+   gCold:{result:"Cloud Storage · Coldline",why:"90-day minimum, lower storage cost, higher retrieval cost. For disaster-recovery copies and quarterly access.",keys:"DR copy, quarterly"},
+   gArc:{result:"Cloud Storage · Archive",why:"Cheapest storage, 365-day minimum, still millisecond access (no thaw delay).",keys:"compliance, legal hold, keep 7 years",trap:"\"Must not be deleted for N years\" → retention policy + Bucket Lock as well."},
+   gAuto:{result:"Cloud Storage · Autoclass",why:"Autoclass moves each object between classes based on actual access, so you don't guess. If the pattern is known and fixed, a lifecycle rule also works.",keys:"unknown or changing access pattern"},
+   ana:{q:"Where does the data live, and in what format?",opts:[["We can load it into Google's warehouse","bq"],["It must stay in open formats (Parquet/Iceberg) on GCS, governed like tables","biglake"],["It sits in AWS S3 or Azure and must not be moved","omni"]]},
+   bq:{result:"BigQuery",why:"Serverless, petabyte-scale columnar warehouse. Partition by date, cluster by common filters, use nested/repeated fields.",keys:"analytics, SQL, petabytes, dashboards, serverless warehouse",trap:"Never pick BigQuery for low-latency single-row lookups from an application. It isn't OLTP.",color:"#16a34a"},
+   biglake:{result:"BigLake tables (on GCS)",why:"Open-format lakehouse tables with BigQuery's fine-grained security (row/column), queried by BigQuery and Spark.",keys:"lakehouse, Iceberg, open formats, fine-grained security on lake"},
+   omni:{result:"BigQuery Omni",why:"Runs BigQuery analytics in AWS/Azure, next to the data, without moving it.",keys:"multicloud, data in S3/Azure, no data movement"},
+   op:{q:"Does it need a relational model with SQL and multi-row transactions?",opts:[["Yes, relational with ACID transactions","rel"],["No, NoSQL is fine","nosql"]]},
+   rel:{q:"How big and how global?",hint:"Think about write scale and regions, not just size.",opts:[["One region, moderate size (up to tens of TB), standard MySQL/Postgres/SQL Server","rel2"],["Global users, horizontal write scaling, 99.999% availability, strong consistency","spanner"]]},
+   rel2:{q:"Is it PostgreSQL that needs much higher performance, or fast analytics on live data?",opts:[["Yes, heavy Postgres or analytics on the operational data","alloy"],["No, a standard managed database is enough","csql"]]},
+   spanner:{result:"Spanner",why:"Relational + SQL + ACID with horizontal scale and global strong consistency (99.999% multi-region).",keys:"global, strongly consistent, horizontally scalable, financial/inventory",trap:"Don't use monotonically increasing primary keys (timestamps, sequences). They hotspot. Use UUIDv4.",color:"#4f46e5"},
+   alloy:{result:"AlloyDB for PostgreSQL",why:"PostgreSQL-compatible, much faster OLTP than standard Postgres, plus a built-in columnar engine for analytics on live data (HTAP).",keys:"Postgres compatibility + performance, HTAP",color:"#0891b2"},
+   csql:{result:"Cloud SQL",why:"Managed MySQL, PostgreSQL or SQL Server. HA with a standby in another zone, read replicas, cross-region replicas for DR.",keys:"lift-and-shift relational, web app backend, regional",trap:"Scales up, not out. If writes outgrow one machine or users are global → Spanner.",color:"#0891b2"},
+   nosql:{q:"What does the access pattern look like?",opts:[["Huge throughput, lookups by a single key or key range, time series / IoT, TB–PB","bt"],["App documents (user profiles, catalogs), query by several fields, mobile offline sync","fs"]]},
+   bt:{result:"Bigtable",why:"Wide-column NoSQL with single-digit-ms latency at massive scale. Only one index: the row key.",keys:"IoT, time series, ad tech, &lt;10 ms, high write throughput, HBase API",trap:"No joins, no secondary indexes. Design the row key for your main query. Never start it with a timestamp.",color:"#16a34a"},
+   fs:{result:"Firestore",why:"Serverless document database with automatic indexes, ACID transactions, real-time listeners and offline sync for mobile/web.",keys:"mobile app, user profiles, flexible schema, offline",trap:"Old dumps call this Datastore. Today it's Firestore in Datastore mode.",color:"#d97706"},
+   cache:{result:"Memorystore",why:"Managed Redis / Valkey / Memcached with sub-millisecond latency.",keys:"cache, session state, leaderboard, reduce load on the database",color:"#db2777"}
+  }},
+ transfer: {title:"Transfer Calculator",sub:"Size + bandwidth → which migration tool",intro:"Drag the sliders to match the scenario. The exam often gives size and bandwidth so you'll pick between online transfer and Transfer Appliance."}
+}
+};
+
+(function(){
+const d3 = PDE.domains.find(d=>d.id==="d3");
+d3.lessons = [
+{id:"d3-l1",title:"The storage decision tree",mins:4,
+ opener:{q:"A ride-hailing app needs to store trip records that drivers and riders update in real time. Users are in 30 countries, and the business needs strongly consistent, relational transactions everywhere. Which service?",
+  opts:["Cloud SQL with read replicas","Bigtable","Spanner","BigQuery"],ans:2,
+  why:"Relational + transactions + global + strong consistency is Spanner's signature. Cloud SQL is regional and scales up, not out. Bigtable has no multi-row transactions. BigQuery is for analytics, not OLTP."},
+ cards:[
+  {h:"Ask these questions in order",b:`<ol><li><b>Files or objects?</b> → Cloud Storage</li><li><b>Analytics over lots of rows?</b> → BigQuery</li><li><b>Relational OLTP?</b> → Cloud SQL (regional) · AlloyDB (fast Postgres) · <mark>Spanner (global, horizontal)</mark></li><li><b>NoSQL, key lookups at scale?</b> → <mark>Bigtable</mark></li><li><b>App documents?</b> → Firestore</li><li><b>Cache?</b> → Memorystore</li></ol><div class="box brain"><div class="l">Exam brain</div>Circle the deciding words: <b>global</b>, <b>&lt;10 ms</b>, <b>time series</b>, <b>SQL analytics</b>, <b>transactions</b>, <b>mobile offline</b>, <b>sub-millisecond</b>.</div>`},
+  {h:"The cheat table",b:`<table><tr><th>Service</th><th>Sweet spot</th></tr><tr><td>Cloud Storage</td><td>Lake, archive, staging</td></tr><tr><td>BigQuery</td><td>PB analytics, seconds</td></tr><tr><td>Cloud SQL</td><td>Regional OLTP, scale up</td></tr><tr><td>AlloyDB</td><td>Heavy Postgres + HTAP</td></tr><tr><td>Spanner</td><td>Global OLTP, 99.999%</td></tr><tr><td>Bigtable</td><td>IoT/time series, &lt;10 ms</td></tr><tr><td>Firestore</td><td>Mobile/web documents</td></tr><tr><td>Memorystore</td><td>Sub-ms cache</td></tr></table>`},
+  {h:"The four classic traps",b:`<div class="box trap"><div class="l">Trap</div><ul><li><mark>BigQuery is not OLTP.</mark> App lookups of one row → never BigQuery.</li><li><mark>Bigtable has no joins or secondary indexes.</mark> "Search by many attributes" → not Bigtable.</li><li>Bigtable is overkill for small data (well under 1 TB).</li><li><mark>Cloud SQL doesn't scale writes horizontally.</mark> Global + huge writes → Spanner.</li></ul></div><p>Try the <b>Storage Picker</b> tool in this domain to practise the flow.</p>`}
+ ],
+ keys:["Files → GCS · analytics → BigQuery · regional OLTP → Cloud SQL · global OLTP → Spanner · key lookups at scale → Bigtable · app docs → Firestore · cache → Memorystore","Read the constraints first. They decide the answer."]},
+
+{id:"d3-l2",title:"Cloud Storage classes & lifecycle",mins:4,
+ opener:{q:"Regulators require that trade records are kept for 7 years and that nobody, not even admins, can delete them early. They are almost never read. What do you configure?",
+  opts:["Coldline bucket with object versioning","Archive bucket with a retention policy, then lock it (Bucket Lock)","Nearline bucket with a lifecycle rule that deletes after 7 years","Standard bucket and remove delete permissions from IAM"],ans:1,
+  why:"A locked retention policy (Bucket Lock) is the only option that makes deletion impossible, even for admins (WORM). Archive is cheapest for data that's almost never read. IAM can be changed back by an admin, and versioning doesn't stop deletion."},
+ cards:[
+  {h:"Four classes, four minimums",b:`<table><tr><th>Class</th><th>Min. duration</th><th>Access</th></tr><tr><td>Standard</td><td>none</td><td>Hot</td></tr><tr><td>Nearline</td><td><mark>30 days</mark></td><td>~Monthly</td></tr><tr><td>Coldline</td><td><mark>90 days</mark></td><td>~Quarterly</td></tr><tr><td>Archive</td><td><mark>365 days</mark></td><td>&lt; yearly</td></tr></table><p><mark>All classes have millisecond access.</mark> Colder = cheaper storage, pricier reads.</p>`},
+  {h:"Automate it",b:`<ul><li><b>Lifecycle rules</b>: change class or delete by age, e.g. <mark>"Coldline after 90 days, delete after 7 years"</mark>.</li><li><b>Autoclass</b>: GCS moves each object based on real access. Pick it when the pattern is unknown.</li><li><b>Object versioning</b> keeps old versions. <b>Soft delete</b> keeps deleted objects for 7 days by default.</li></ul>`},
+  {h:"Locations, locks & access",b:`<ul><li><b>Region</b> (cheapest, next to compute) · <b>dual-region</b> (two named regions, <mark>turbo replication = 15-min RPO</mark>) · <b>multi-region</b> (US/EU/ASIA).</li><li><mark>Retention policy + Bucket Lock = WORM</mark>: can't delete before the period ends.</li><li><b>Signed URLs</b>: temporary access for someone without a Google account.</li><li>Uniform bucket-level access = IAM only (recommended).</li></ul><div class="box pic"><div class="l">Picture it</div>Storage classes are like a house: the living room (Standard), the garage (Nearline), the attic (Coldline), and a storage unit across town (Archive). Everything opens instantly, but the further away it is, the more each trip costs.</div>`}
+ ],
+ keys:["30 / 90 / 365-day minimums for Nearline / Coldline / Archive","Can't-delete-for-N-years → retention policy + Bucket Lock","Known pattern → lifecycle rule; unknown → Autoclass"]},
+
+{id:"d3-l3",title:"BigQuery partitioning & clustering",mins:5,
+ opener:{q:"A 40 TB events table is queried every day with WHERE event_date = CURRENT_DATE() AND customer_id = @id. Each query scans the full table. What gives the biggest cost reduction?",
+  opts:["Add LIMIT 1000 to the queries","Partition by event_date and cluster by customer_id","Create a view that filters to today","Buy more slots"],ans:1,
+  why:"Partitioning prunes everything outside the date, and clustering then skips blocks within the partition. LIMIT doesn't reduce bytes scanned. A view doesn't change storage layout. Slots change speed, not bytes billed."},
+ cards:[
+  {h:"How you pay (on-demand)",b:`<div class="box pic"><div class="l">Picture it</div>BigQuery charges you for every shelf you walk past, not the books you take. Partitions are rooms by date. Clustering sorts each shelf. Fewer columns = fewer aisles (columnar storage).</div><p><mark>LIMIT does not reduce bytes scanned</mark> on normal tables. <code>SELECT *</code> is the enemy.</p>`},
+  {h:"Partitioning",b:`<ul><li>Types: <b>time-unit column</b> (DATE/TIMESTAMP/DATETIME by hour/day/month/year), <b>ingestion time</b> (<code>_PARTITIONTIME</code>), <b>integer range</b>.</li><li><mark>require_partition_filter</mark> blocks accidental full scans.</li><li><b>Partition expiration</b> auto-deletes old partitions.</li><li><mark>You can't partition an existing table in place</mark>. Use <code>CREATE TABLE … PARTITION BY … AS SELECT</code>.</li><li>There's a limit on partitions per table (thousands), so don't use hourly partitions over many years.</li></ul>`},
+  {h:"Clustering",b:`<ul><li>Sorts storage by <mark>up to 4 columns</mark>. Best for high-cardinality filters (customer_id, sku).</li><li>Works with or without partitions. Re-clustering is automatic and free.</li><li><mark>"Partition by date, cluster by customer_id"</mark> is the classic correct answer.</li></ul><div class="box brain"><div class="l">Exam brain</div>Low-cardinality date filter → partition. High-cardinality ID filter → cluster. Both → both.</div>`}
+ ],
+ keys:["Partition on the date you filter by; cluster on high-cardinality filters (≤4 columns)","LIMIT ≠ cheaper. Select only the columns you need","Existing table → CTAS into a new partitioned table"]},
+
+{id:"d3-l4",title:"BigQuery schema design & loading",mins:5,
+ opener:{q:"An orders table and an order_items table (10 billion rows) are always joined. The join is the slowest part of every report. What's the BigQuery-recommended redesign?",
+  opts:["Normalize further into 3NF","Store line items as a nested, repeated field (ARRAY<STRUCT>) inside orders","Move both tables to Cloud SQL","Shard order_items into one table per day"],ans:1,
+  why:"Nested/repeated fields keep the children with their parent row, so the join disappears. More normalization adds joins. Cloud SQL can't handle this analytical scale. Date-sharding is an outdated pattern."},
+ cards:[
+  {h:"Denormalize the BigQuery way",b:`<ul><li><mark>Nested &amp; repeated fields</mark> (STRUCT / ARRAY) instead of big joins.</li><li>Star schemas are fine: small dimensions joined to big facts.</li><li>Avoid self-joins on huge tables → use <b>window functions</b>.</li><li>Avoid frequent single-row DML → batch it, or use <code>MERGE</code>.</li><li><mark>Partitioned tables beat date-sharded tables</mark> (<code>events_20260101</code>…).</li></ul>`},
+  {h:"Loading data in",b:`<ul><li><mark>Batch load jobs are free</mark> (shared slot pool).</li><li>Best format: <mark>Avro</mark> (self-describing schema, compressed blocks, parallel reads). Then Parquet/ORC, then CSV/JSON.</li><li>Streaming: <mark>Storage Write API</mark> (cheaper, exactly-once with committed streams) &gt; legacy <code>insertAll</code>. Or a Pub/Sub BigQuery subscription.</li></ul>`},
+  {h:"Query data where it lives",b:`<ul><li><b>External tables</b>: GCS files, Google Sheets, Bigtable. Slower, but no copy.</li><li><b>Federated queries</b>: <code>EXTERNAL_QUERY</code> to Cloud SQL / AlloyDB / Spanner.</li><li><b>BigLake</b>: open-format lake tables (Iceberg/Parquet) with row/column security.</li><li><b>BigQuery Omni</b>: query S3/Azure data without moving it.</li><li><b>Object tables</b>: unstructured files (images, PDFs) as a table, ready for ML.</li></ul>`}
+ ],
+ keys:["Nested/repeated > joins for parent-child analytics","Avro for loads, Storage Write API for streams","Partitioned tables, not date-sharded tables"]},
+
+{id:"d3-l5",title:"BigQuery backup, recovery & storage cost",mins:4,
+ opener:{q:"At 10:00 a colleague ran a bad UPDATE that corrupted a production BigQuery table. It is now 13:00. What's the fastest way to recover?",
+  opts:["Open a support case to use fail-safe","Query the table FOR SYSTEM_TIME AS OF 09:59 and write it back","Restore from last week's GCS export","Re-run all the pipelines from scratch"],ans:1,
+  why:"Time travel keeps up to 7 days of history (2–7 days, configurable), so a query AS OF before the change recovers it in minutes. Fail-safe is for after the time-travel window and needs support. The other options are slow and lose recent data."},
+ cards:[
+  {h:"Recovery tools",b:`<table><tr><th>Tool</th><th>Use</th></tr><tr><td>Time travel</td><td><mark>Last 2–7 days</mark>, <code>FOR SYSTEM_TIME AS OF</code></td></tr><tr><td>Fail-safe</td><td>7 more days, via Google support</td></tr><tr><td>Table snapshot</td><td>Cheap read-only point-in-time copy, kept as long as you want</td></tr><tr><td>Table clone</td><td>Writable lightweight copy for testing</td></tr><tr><td>Cross-region replication</td><td>DR copy of a dataset in another region</td></tr></table>`},
+  {h:"Storage cost levers",b:`<ul><li><mark>Long-term storage: 90 days unmodified → ~50% cheaper</mark>, automatically.</li><li><b>Table / partition expiration</b> for temporary data.</li><li><b>Physical (compressed) billing</b> can be much cheaper for compressible data.</li><li>Dataset <b>location is fixed at creation</b>. To move it, copy to a new dataset.</li></ul>`}
+ ],
+ keys:["Oops within a week → time travel","Long-term backups → table snapshots","90 days untouched → long-term price automatically"]},
+
+{id:"d3-l6",title:"Bigtable: model & row keys",mins:6,
+ opener:{q:"A fleet app stores GPS readings from 80,000 trucks. The main screen shows the 50 most recent readings for one truck. Which row key is best?",
+  opts:["timestamp#truck_id","truck_id#timestamp","truck_id#reverse_timestamp","A random UUID per reading"],ans:2,
+  why:"Starting with truck_id groups each truck's rows and spreads writes across nodes. A reverse timestamp sorts the newest first, so the 50 most recent are a short scan from the start. A timestamp-first key hotspots, and UUIDs make 'one truck's latest readings' a full scan."},
+ cards:[
+  {h:"It's a giant phone book",b:`<div class="box pic"><div class="l">Picture it</div>Bigtable is a phone book sorted only by the <b>row key</b>. Looking up one name is instant. "Everyone on Jalan Sudirman" means reading the whole book.</div><ul><li>Rows → <b>column families</b> → columns → timestamped cells. Sparse: empty cells are free.</li><li><mark>Only one index: the row key</mark>, sorted lexicographically. Point, prefix and range scans.</li><li><b>Atomic within one row only</b>.</li><li>Throughput scales <mark>linearly with nodes</mark>. Autoscaling supported.</li><li>HBase-compatible API: easy migration from HBase.</li></ul>`},
+  {h:"Row-key rules",b:`<table><tr><th>Do</th><th>Don't</th></tr><tr><td>Lead with what you query: <code>device#metric#ts</code></td><td><mark>Start with a timestamp → hotspot</mark></td></tr><tr><td><mark>Field promotion</mark> first</td><td>Sequential IDs as the prefix</td></tr><tr><td>Salting only if needed</td><td>Hash keys when you need range scans</td></tr><tr><td><mark>Reverse timestamp</mark> for newest-first</td><td>Long keys</td></tr><tr><td>Tall &amp; narrow for time series</td><td>Unbounded versions in one row</td></tr></table>`},
+  {h:"Diagnose before you scale",b:`<div class="box brain"><div class="l">Exam brain</div>"One node is overloaded, latency is uneven" → <b>hotspot from a bad row key</b>. Diagnose with <mark>Key Visualizer</mark>, fix by redesigning the key. <mark>Adding nodes doesn't fix a hotspot.</mark></div><ul><li>Bigtable is overkill for small data (well under 1 TB).</li><li>For realistic performance tests, use ≥300 GB and run for 10+ minutes.</li></ul>`}
+ ],
+ keys:["Row key = your main query. Never timestamp-first","Field promotion before salting; reverse timestamp for latest-first","Uneven load → Key Visualizer → fix the key"]},
+
+{id:"d3-l7",title:"Bigtable: replication & operations",mins:4,
+ opener:{q:"Nightly batch analytics on Bigtable slow down the customer-facing app that reads the same table. What's the cleanest fix?",
+  opts:["Double the node count","Add a second cluster with replication and route batch jobs to it with a single-cluster app profile","Move the app to BigQuery","Switch the instance to HDD"],ans:1,
+  why:"Replication plus app profiles isolates workloads: the app uses one cluster and batch uses the other. Adding nodes helps, but batch still competes with the app. BigQuery isn't for low-latency serving. HDD makes latency worse."},
+ cards:[
+  {h:"Replication & app profiles",b:`<ul><li>An instance can have <b>multiple clusters</b> in different zones/regions with automatic replication (eventually consistent between clusters).</li><li><mark>Multi-cluster routing</mark>: automatic failover, high availability.</li><li><mark>Single-cluster routing</mark>: read-your-writes, and <b>isolates workloads</b>.</li></ul>`},
+  {h:"Operational facts",b:`<ul><li><mark>SSD ↔ HDD can't be switched.</mark> Create a new instance and copy the data (Dataflow or export/import).</li><li>HDD only for big, mostly batch, cost-sensitive data.</li><li>Deletes/updates are new writes, cleaned up by <b>compaction</b> + <b>garbage-collection policies</b> (max versions / max age), so deleting temporarily increases storage.</li><li>Keep clients in the same region/zone as the cluster.</li></ul>`}
+ ],
+ keys:["Workload isolation → replication + app profiles","HA → multi-cluster routing","SSD/HDD is permanent per instance"]},
+
+{id:"d3-l8",title:"Spanner",mins:4,
+ opener:{q:"A Spanner table uses an auto-incrementing order_id as the primary key. Write latency spikes as traffic grows. Why, and what's the fix?",
+  opts:["Too few nodes; add nodes","Monotonically increasing keys hotspot one split; use a UUIDv4 (or bit-reversed sequence) key","Spanner can't handle writes; move to Bigtable","Add a secondary index on order_id"],ans:1,
+  why:"Sequential keys send every new row to the same split, so one server takes all the writes. UUIDv4 or bit-reversed sequences spread them. Nodes and indexes don't solve the hotspot."},
+ cards:[
+  {h:"What makes Spanner special",b:`<ul><li>Relational + SQL + ACID + <mark>horizontal scale</mark> + <mark>global strong (external) consistency</mark> using TrueTime.</li><li>SLA: 99.99% regional, <mark>99.999% multi-region</mark>.</li><li>Scale with nodes / processing units, with autoscaling.</li><li>Pick it for banking ledgers, global inventory and game state where Cloud SQL can't keep up.</li></ul>`},
+  {h:"Design rules",b:`<ul><li><mark>Avoid monotonically increasing primary keys</mark>: use UUIDv4 or bit-reversed sequences.</li><li><mark>Interleaved tables</mark>: store child rows physically with their parent (fast parent-child reads).</li><li><b>Data Boost</b>: run analytics or BigQuery federated queries without touching OLTP capacity.</li><li>Point-in-time recovery + backups for failures.</li></ul>`}
+ ],
+ keys:["Global + relational + strongly consistent + huge scale → Spanner","No sequential primary keys","Interleave child tables with their parents"]},
+
+{id:"d3-l9",title:"Cloud SQL & AlloyDB",mins:4,
+ opener:{q:"Heavy reporting queries are slowing down a Cloud SQL for PostgreSQL database that serves a web app. The reports can be a few seconds stale. What should you do first?",
+  opts:["Enable high availability","Create a read replica and point reporting at it","Migrate to Spanner","Increase the storage size"],ans:1,
+  why:"A read replica offloads reads that can tolerate slight lag. HA is a standby for failover and doesn't serve reads. Spanner is a big redesign that isn't needed here. Storage size doesn't speed up queries."},
+ cards:[
+  {h:"Cloud SQL in 30 seconds",b:`<ul><li>Managed MySQL / PostgreSQL / SQL Server. <b>Scales up, not out.</b></li><li><mark>HA = regional instance with a standby in another zone</mark> (automatic failover for zone failure).</li><li><mark>Read replicas</mark> offload reads. <mark>Cross-region replica</mark> = DR for a region outage (promote it).</li><li>Automated backups + point-in-time recovery.</li><li>Connect via Cloud SQL Auth Proxy / private IP. Migrate in with Database Migration Service.</li></ul>`},
+  {h:"When AlloyDB beats Cloud SQL",b:`<ul><li>PostgreSQL-compatible, with much higher transactional throughput.</li><li>Built-in <mark>columnar engine → fast analytics on live operational data (HTAP)</mark>.</li><li>Read pools, HA, vector search (AlloyDB AI).</li></ul><div class="box brain"><div class="l">Exam brain</div>"Keep Postgres, need more performance or analytics on the same data, minimal app changes" → <b>AlloyDB</b>. "Global writes, unlimited scale" → <b>Spanner</b>.</div>`}
+ ],
+ keys:["Zone failure → HA · region failure → cross-region replica · read load → read replica","Faster Postgres + HTAP → AlloyDB"]},
+
+{id:"d3-l10",title:"Firestore & Memorystore",mins:3,
+ opener:{q:"A product catalog in Cloud SQL is read thousands of times per second with the same queries, and the database CPU is maxed out. Data changes a few times a day. What's the cheapest effective fix?",
+  opts:["Move the catalog to Spanner","Put Memorystore in front as a cache","Add BigQuery BI Engine","Move to Bigtable"],ans:1,
+  why:"Repeated identical reads of rarely changing data are the classic cache case: Memorystore serves them in under a millisecond and takes the load off Cloud SQL. The others are expensive redesigns that don't target the real problem."},
+ cards:[
+  {h:"Firestore",b:`<ul><li>Serverless <b>document</b> DB. Automatic indexes on fields, so you can query by properties (unlike Bigtable).</li><li><mark>ACID transactions, real-time listeners, offline sync for mobile/web.</mark></li><li>Native mode vs <mark>Datastore mode</mark> (old dumps say "Datastore").</li><li>Heavy analytics → export to BigQuery.</li></ul>`},
+  {h:"Memorystore",b:`<ul><li>Managed <b>Redis / Valkey / Memcached</b>, sub-millisecond.</li><li>Use for: <mark>caching hot query results, session state, leaderboards</mark>, rate limiting.</li><li>A cache, not your system of record.</li></ul>`}
+ ],
+ keys:["Mobile/web documents + offline → Firestore","Hot repeated reads → Memorystore cache"]},
+
+{id:"d3-l11",title:"Data warehouse modelling",mins:4,
+ opener:{q:"Analysts need to see which sales region each customer belonged to at the time of every past order, even after customers move. How do you model the customer dimension?",
+  opts:["Overwrite the region on change (SCD Type 1)","Keep history rows with valid_from / valid_to / is_current (SCD Type 2)","Store region only in Cloud SQL","Delete and reload the customer table nightly"],ans:1,
+  why:"SCD Type 2 keeps every version of a customer with its validity period, so orders join to the region that was valid at order time. Type 1 overwrites history, and nightly reloads also lose it."},
+ cards:[
+  {h:"Start from the questions",b:`<ul><li>Who queries what, how often, and how fresh must it be? Design for <b>access patterns</b>.</li><li><b>Normalize</b> (3NF) for OLTP integrity. <mark>Denormalize</mark> (star schema, nested/repeated) for analytics.</li><li>Datasets by <b>domain + access boundary</b> (<code>finance_raw</code>, <code>finance_curated</code>), since IAM is easiest per dataset.</li></ul>`},
+  {h:"Slowly changing dimensions",b:`<ul><li><b>Type 1</b>: overwrite, no history.</li><li><mark>Type 2</mark>: new row per change with <code>valid_from</code>, <code>valid_to</code>, <code>is_current</code>.</li><li>Implement upserts with <code>MERGE</code> in BigQuery (or Dataform).</li></ul>`}
+ ],
+ keys:["Analytics → denormalize; OLTP → normalize","Keep history → SCD Type 2 + MERGE"]},
+
+{id:"d3-l12",title:"Data lakes & Dataplex",mins:5,
+ opener:{q:"Ten domain teams each own their GCS buckets and BigQuery datasets. Leadership wants one place to discover data, central security policies and automatic data-quality checks, without moving data. What should you use?",
+  opts:["Copy everything into one central BigQuery dataset","Dataplex: lakes and zones over the existing assets, Universal Catalog, data quality scans","A shared spreadsheet of table owners","Cloud Composer DAGs that email table lists"],ans:1,
+  why:"Dataplex organizes existing buckets and datasets into lakes and zones with central governance, cataloging, profiling, quality and lineage, without moving any data. Centralizing copies breaks domain ownership and duplicates data."},
+ cards:[
+  {h:"From swamp to platform",b:`<div class="box pic"><div class="l">Picture it</div>A lake without governance is a swamp. Dataplex is the librarian and the health inspector: it knows what's in each bucket and table, who owns it, how good it is, and where it came from.</div><ul><li><mark>Lake → Zones (raw / curated) → Assets</mark> (GCS buckets, BigQuery datasets).</li><li><b>Dataplex Universal Catalog</b> (formerly Data Catalog): search, metadata, glossary.</li><li><mark>Data profiling + data quality scans</mark> with rules and alerts.</li><li><b>Lineage</b> across BigQuery, Dataflow, Composer, Dataproc.</li></ul>`},
+  {h:"Data mesh & lake costs",b:`<ul><li><mark>Federated governance</mark>: domain teams own data products, central policies still apply. That's Dataplex + BigQuery + Analytics Hub.</li><li>Lake cost: lifecycle rules/Autoclass, partition expiration, <mark>compact many small files into fewer large ones</mark>.</li></ul>`}
+ ],
+ keys:["Discover + govern + quality + lineage without moving data → Dataplex","Many tiny files hurt performance → compact them"]}
+];
+})();
+
+(function(){
+const Q = (id,topic,q,opts,ans,tip,mock)=>({id,d:"d3",topic,q,opts:opts.map(([t,w])=>({t,w})),ans:Array.isArray(ans)?ans:[ans],tip,mock:!!mock});
+PDE.questions.push(
+Q("d3q01","Cloud Storage","Your security team keeps weekly database backups in Cloud Storage. Backups are restored about once a month for testing and must be retained for 6 months, after which they should be removed automatically. You want the lowest cost. What should you do?",[
+ ["Store backups in Standard and delete them manually each month","Standard storage costs more than needed for monthly access, and manual deletion is error-prone."],
+ ["Store backups in Nearline with a lifecycle rule that deletes objects older than 180 days","Correct. Nearline fits roughly monthly access (30-day minimum), and a lifecycle Delete rule at 180 days automates removal."],
+ ["Store backups in Archive with a 180-day retention policy","Archive has a 365-day minimum duration and expensive retrievals. Monthly restores would cost far more."],
+ ["Store backups in Coldline with object versioning","Coldline retrievals cost more than Nearline for monthly access, and versioning doesn't delete anything."]],1,
+ "Access frequency picks the class (monthly → Nearline). Lifecycle rules automate class changes and deletion."),
+Q("d3q02","Cloud Storage","A media company stores raw video in Cloud Storage. Files are edited heavily for the first 30 days, accessed a few times a year after that, and deleted after one year. The access pattern is predictable. What's the most cost-effective setup?",[
+ ["A lifecycle rule: Standard → Coldline after 30 days, delete after 365 days","Correct. The pattern is known, so a lifecycle rule moves objects to Coldline (quarterly-ish access) after the hot period and deletes them at one year."],
+ ["Upload directly to Nearline","Heavy editing in the first 30 days would rack up Nearline retrieval and early-deletion charges."],
+ ["A lifecycle rule: Standard → Archive after 30 days","Archive's 365-day minimum and high retrieval fees don't fit data that's read a few times a year and deleted at one year."],
+ ["Keep everything in Standard and enable soft delete","No cost optimization at all. Soft delete only helps with recovery."]],0,
+ "Known access pattern → lifecycle rule. Unknown pattern → Autoclass."),
+Q("d3q03","Cloud Storage","An external auditor without a Google account needs to download a single report from a private bucket during the next 24 hours. What's the simplest secure option?",[
+ ["Make the object public for 24 hours","Public access exposes the file to anyone and relies on you remembering to revert it."],
+ ["Create a Google account for the auditor and grant Storage Object Viewer","Works, but it's heavyweight and leaves standing access to clean up."],
+ ["Generate a signed URL that expires in 24 hours","Correct. Signed URLs grant time-limited access to one object without needing a Google identity."],
+ ["Copy the file to a bucket in the auditor's project","They don't have a Google Cloud project or account, so this doesn't work."]],2,
+ "Temporary access for someone without a Google account → signed URL."),
+Q("d3q04","Cloud Storage","A company must be able to recover from the loss of an entire region with a recovery point objective (RPO) of 15 minutes for objects in Cloud Storage. Data must stay in two specific EU regions. What should you choose?",[
+ ["A regional bucket with daily transfer jobs to another region","Daily copies mean up to 24 hours of data loss, far above a 15-minute RPO."],
+ ["An EU multi-region bucket","Multi-region replication is asynchronous with no 15-minute RPO guarantee, and you can't choose the specific regions."],
+ ["A dual-region bucket with turbo replication","Correct. Dual-region lets you pick the two regions, and turbo replication targets a 15-minute RPO."],
+ ["A regional bucket with object versioning","Versioning protects against overwrites, not against losing a region."]],2,
+ "15-minute RPO for GCS → dual-region + turbo replication."),
+Q("d3q05","Choosing storage","You're designing the backend for a global multiplayer game. Player inventories are updated by purchases from any continent, must never be double-spent, and must stay available during a regional outage. Which database should you use?",[
+ ["Cloud SQL with cross-region read replicas","Replicas are read-only, so writes still go to one primary region, and failover isn't seamless."],
+ ["Firestore in a single region","Single region doesn't survive a regional outage, and it isn't built for globally consistent relational transactions at this scale."],
+ ["Spanner with a multi-region configuration","Correct. Global strongly consistent ACID transactions with 99.999% availability across regions."],
+ ["Bigtable with multi-cluster routing","Bigtable replication is eventually consistent and has no multi-row transactions, so double-spends are possible."]],2,
+ "\"Never double-spent\" + global + highly available → Spanner."),
+Q("d3q06","Choosing storage","A smart-meter platform receives 2 million readings per second from 30 million meters. Customer apps show a meter's last 48 hours with under 10 ms latency. Data scientists analyse years of history weekly. Which primary store fits the ingestion and serving requirement?",[
+ ["BigQuery","Great for the weekly analysis, but not for sub-10 ms point reads from apps."],
+ ["Cloud SQL for PostgreSQL","A single primary can't absorb 2 million writes per second."],
+ ["Bigtable","Correct. It's built for massive write throughput and low-latency key/range reads of time-series data. Export or federate to BigQuery for analytics."],
+ ["Memorystore","An in-memory cache, not a durable store for years of readings."]],2,
+ "Time series + massive writes + <10 ms reads → Bigtable. Heavy analytics can still go to BigQuery."),
+Q("d3q07","Choosing storage","A mobile banking app needs to store each user's profile and app preferences. The app must work offline on the subway and sync automatically when the phone reconnects. Which service?",[
+ ["Firestore","Correct. Firestore's mobile SDKs give offline persistence and automatic sync, with a flexible document model."],
+ ["Bigtable","No mobile offline sync, and it's overkill for profile documents."],
+ ["Cloud SQL","Needs a custom API layer and has no built-in offline sync."],
+ ["Cloud Storage","Object storage, not a queryable app database."]],0,
+ "Mobile + offline sync + flexible documents → Firestore."),
+Q("d3q08","Choosing storage","A marketing team wants to run SQL over 300 TB of clickstream history and build dashboards. They don't want to manage any infrastructure. Which service?",[
+ ["Dataproc with Hive","Works, but you'd manage clusters, which the team explicitly doesn't want."],
+ ["BigQuery","Correct. A serverless petabyte-scale warehouse with standard SQL and native BI connections."],
+ ["Cloud SQL","Not designed for hundreds of TB of analytical scans."],
+ ["Bigtable","No SQL joins or aggregations across arbitrary columns."]],1,
+ "SQL analytics + large data + no infrastructure → BigQuery."),
+Q("d3q09","Choosing storage","Which TWO workloads are a poor fit for Bigtable?",[
+ ["A 50 GB product catalog queried by brand, price and category","Correct (poor fit). It's small data, and Bigtable can't query by several attributes because it has no secondary indexes."],
+ ["Storing billions of ad-impression events keyed by user and time","A good fit: high-throughput, key-based time series."],
+ ["An order system that must atomically update an order row and an inventory row","Correct (poor fit). Bigtable is atomic only within a single row, with no multi-row transactions."],
+ ["Serving user feature vectors to an ML model at 50,000 reads per second","A good fit: high-throughput key lookups with low latency."]],[0,2],
+ "Bigtable red flags: small data, search by many attributes, multi-row transactions, SQL joins."),
+Q("d3q10","Bigtable","IoT devices write readings to Bigtable with the row key <code>timestamp#device_id</code>. Monitoring shows one node at 100% CPU while the others are mostly idle. What should you do?",[
+ ["Add more nodes to the cluster","New writes still all land on the same key range, so the hotspot moves with them. Nodes don't fix a bad key."],
+ ["Change the row key to <code>device_id#timestamp</code>","Correct. Field promotion: leading with the device spreads writes across the key space while keeping per-device range scans."],
+ ["Prefix every key with a random number from 1 to 100","Salting spreads writes, but reading one device then means scanning 100 ranges. Use it only if field promotion isn't enough."],
+ ["Switch the cluster from HDD to SSD","You can't switch in place, and storage type doesn't cause hotspots."]],1,
+ "Timestamp-first key → hotspot. Fix with field promotion; salting is the fallback."),
+Q("d3q11","Bigtable","You store user activity in Bigtable. The most common query is \"all events for a user between two dates\". Which row key design supports it best?",[
+ ["<code>event_date#user_id</code>","Hotspots on the current date, and one user's events end up scattered across many dates."],
+ ["<code>user_id#event_timestamp</code>","Correct. One prefix scan per user, ranged by timestamp, and writes spread across users."],
+ ["<code>hash(event_id)</code>","Spreads writes, but makes any per-user range query a full table scan."],
+ ["<code>event_type#user_id</code>","Groups by type, not by user and time, so the main query becomes expensive."]],1,
+ "Design the row key in the order of your most common query: entity first, then time."),
+Q("d3q12","Bigtable","Your Bigtable instance was created with HDD storage. Latency is now too high and you need SSD. What should you do?",[
+ ["Edit the instance and change the storage type to SSD","Storage type can't be changed after creation."],
+ ["Create a new SSD instance and copy the data with a Dataflow job (or export/import)","Correct. Migrating to a new instance is the only way to change storage type."],
+ ["Add more HDD nodes","More nodes add throughput but don't give SSD-level latency."],
+ ["Enable replication to an SSD cluster in the same instance","All clusters in an instance share the same storage type."]],1,
+ "SSD ↔ HDD is permanent per instance → new instance + copy."),
+Q("d3q13","Bigtable","A Bigtable instance serves a latency-sensitive API. You want automatic failover if a zone goes down, with minimal application changes. What should you configure?",[
+ ["A second cluster in another zone and an app profile with multi-cluster routing","Correct. Replication plus multi-cluster routing fails over automatically to the healthy cluster."],
+ ["Nightly backups to Cloud Storage","Recovery would be slow and lose up to a day of data, so this isn't automatic failover."],
+ ["A single cluster with more nodes","More nodes don't help when the zone itself is down."],
+ ["An app profile with single-cluster routing","Single-cluster routing pins traffic to one cluster, so there's no automatic failover."]],0,
+ "Bigtable HA → multi-cluster routing. Workload isolation → single-cluster routing per workload."),
+Q("d3q14","Bigtable","You store per-minute temperature readings for 1 million sensors in Bigtable. A teammate proposes one row per sensor with a new column for every minute, forever. What's the problem, and the better design?",[
+ ["No problem; wide rows are always faster","Rows grow without bound, which risks hitting row-size limits and slows reads."],
+ ["Rows grow without limit. Use tall and narrow rows instead, e.g. <code>sensor_id#reverse_timestamp</code> with one reading per row","Correct. Tall/narrow is the recommended time-series pattern, and it keeps rows small and scans efficient."],
+ ["Bigtable can't store time series; use Cloud SQL","Time series is a core Bigtable use case."],
+ ["Store each reading as a separate table","Thousands of tables is an anti-pattern."]],1,
+ "Time series in Bigtable → tall & narrow rows."),
+Q("d3q15","Spanner","An e-commerce platform on Spanner frequently reads an order together with all its line items. Reads are slower than expected because the tables are joined. What design change helps most?",[
+ ["Make LineItems an interleaved child table of Orders","Correct. Interleaving stores each order's line items physically next to the order row, so parent-child reads are fast."],
+ ["Add a secondary index on line_item_id","Doesn't co-locate the rows, so the join cost stays."],
+ ["Move line items to Bigtable","Loses relational integrity and adds complexity."],
+ ["Increase the number of Spanner nodes","Adds capacity but doesn't fix the data locality issue."]],0,
+ "Parent-child access in Spanner → interleaved tables."),
+Q("d3q16","Spanner","Which primary key choice is most likely to cause write hotspots in Spanner?",[
+ ["A UUIDv4","Random, so writes spread evenly. This is the recommended choice."],
+ ["A bit-reversed sequence","Designed specifically to avoid hotspots."],
+ ["A commit timestamp as the first key column","Correct. Monotonically increasing values send all inserts to the same split."],
+ ["A hash of customer_id followed by order_id","Hashing the prefix distributes writes."]],2,
+ "Spanner (and Bigtable): never lead with a monotonically increasing value."),
+Q("d3q17","Cloud SQL","A Cloud SQL for MySQL database in us-central1 must keep running if the whole region becomes unavailable. What should you set up?",[
+ ["Enable high availability (regional instance)","HA protects against a zone failure, not a region failure."],
+ ["Create a cross-region read replica and promote it during a regional outage","Correct. A cross-region replica is Cloud SQL's disaster-recovery pattern for losing a region."],
+ ["Take on-demand backups every hour","Restoring takes time, and backups stored in the same region could be affected too."],
+ ["Increase the machine size","Doesn't protect against an outage."]],1,
+ "Cloud SQL: zone failure → HA; region failure → cross-region replica."),
+Q("d3q18","AlloyDB","A retailer runs its order system on PostgreSQL. Analysts run heavy aggregation queries on live order data, and the database struggles. The team wants PostgreSQL compatibility and minimal code changes. What should they move to?",[
+ ["BigQuery, with the application writing directly to it","BigQuery isn't an OLTP database for an order system."],
+ ["AlloyDB for PostgreSQL with the columnar engine","Correct. Postgres-compatible, faster OLTP, and the columnar engine accelerates analytics on live data (HTAP)."],
+ ["Spanner","A bigger migration (different dialect and design) than the requirements call for."],
+ ["Firestore","Not relational, so it would mean a full rewrite."]],1,
+ "Postgres + performance + analytics on live data + minimal changes → AlloyDB."),
+Q("d3q19","Memorystore","A web app stores user session data in Cloud SQL, and session lookups add 40 ms to every request. You need sub-millisecond session reads. What should you use?",[
+ ["Memorystore for Redis","Correct. An in-memory key-value store with sub-ms latency is the standard session store."],
+ ["BigQuery","Analytical latency is seconds."],
+ ["Cloud Storage","Object reads are tens of milliseconds, too slow for per-request sessions."],
+ ["Spanner","A strongly consistent database is overkill and slower than an in-memory cache."]],0,
+ "Sub-millisecond + sessions/cache/leaderboard → Memorystore."),
+Q("d3q20","BigQuery design","A BigQuery table holds 5 years of sales. Almost every query filters on <code>sale_date</code>, but some analysts forget the filter and scan everything. What should you do?",[
+ ["Partition by sale_date and set require_partition_filter = true","Correct. Queries without a partition filter are rejected, which prevents accidental full scans."],
+ ["Cluster by sale_date","Clustering helps, but doesn't stop queries without a filter from scanning everything."],
+ ["Create a view with WHERE sale_date > '2025-01-01'","Analysts can still query the base table directly."],
+ ["Ask analysts to add LIMIT to queries","LIMIT doesn't reduce bytes scanned."]],0,
+ "Prevent accidental full scans → require partition filter."),
+Q("d3q21","BigQuery design","A table is partitioned by day on <code>event_ts</code>. Most queries also filter on <code>store_id</code> (5,000 distinct values) and still read most of each partition. What's the next optimization?",[
+ ["Partition by store_id instead","You'd lose date pruning, and integer-range partitions are capped, so this isn't the best fit."],
+ ["Cluster the table by store_id","Correct. Clustering sorts data within each partition, so filters on store_id skip blocks."],
+ ["Create one table per store","Thousands of tables is an anti-pattern."],
+ ["Increase the slot reservation","Faster, but you still scan (and pay for) the same bytes on-demand."]],1,
+ "Partition on the date, cluster on high-cardinality filters."),
+Q("d3q22","BigQuery design","You have an existing 20 TB non-partitioned BigQuery table and want it partitioned by <code>order_date</code>. What should you do?",[
+ ["Run ALTER TABLE ... SET PARTITION BY order_date","You can't add partitioning to an existing non-partitioned table in place."],
+ ["Create a new table with CREATE TABLE ... PARTITION BY order_date AS SELECT * FROM the old table","Correct. Create a partitioned table from the existing data with a query (CTAS), then switch over."],
+ ["Export to GCS, delete the table, and reload it into the same table name","Works, but it's slow and unnecessary compared with CTAS."],
+ ["Add a clustering spec on order_date","Clustering isn't partitioning. It doesn't give partition pruning or partition expiration."]],1,
+ "Existing table → CTAS into a new partitioned table."),
+Q("d3q23","BigQuery design","Your team still creates a new BigQuery table every day (<code>logs_20261101</code>, <code>logs_20261102</code>…) and queries them with wildcards. Queries are slow and metadata-heavy. What's the recommended fix?",[
+ ["Keep sharding but use fewer columns","Doesn't address the overhead of thousands of tables."],
+ ["Consolidate into one table partitioned by date","Correct. Partitioned tables are faster and simpler than date-sharded tables and keep per-day pruning."],
+ ["Move logs to Cloud SQL","Not designed for this volume of analytics."],
+ ["Shard by hour instead","Makes the problem worse."]],1,
+ "Date-sharded tables → one partitioned table."),
+Q("d3q24","BigQuery design","Each customer record has a variable list of addresses and phone numbers. Reports always read a customer together with these lists, and today that takes three joins. How should you model this in BigQuery?",[
+ ["Keep separate tables and add more slots","Keeps the expensive joins."],
+ ["Use nested and repeated fields (ARRAY of STRUCT) inside the customer table","Correct. Nested/repeated fields keep related data in the same row, so the joins disappear."],
+ ["Store addresses as a JSON string and parse it in every query","Possible, but loses schema, types and efficient column pruning."],
+ ["Normalize addresses further into separate tables per country","More joins, not fewer."]],1,
+ "Parent + child lists read together → nested & repeated fields."),
+Q("d3q25","Loading","You load large daily files into BigQuery and want the fastest loads, support for schema evolution, and compressed files that can still be read in parallel. Which format should the upstream system produce?",[
+ ["CSV with gzip","Gzipped CSV can't be split, so it loads slowly and has no embedded schema."],
+ ["Avro","Correct. Self-describing schema, compressed blocks that are read in parallel, and the fastest load format."],
+ ["JSON with gzip","Same split problem as gzipped CSV, plus JSON parsing overhead."],
+ ["Excel files","Not a supported load format."]],1,
+ "Fastest BigQuery load format → Avro (Parquet/ORC are also good)."),
+Q("d3q26","Loading","A service streams 50,000 events per second into BigQuery using the legacy insertAll API. Costs are high and you occasionally see duplicates after retries. What should you change?",[
+ ["Switch to the BigQuery Storage Write API","Correct. It's cheaper than legacy streaming and supports exactly-once semantics with committed streams."],
+ ["Batch events into hourly load jobs","Cheap, but adds up to an hour of latency, which isn't acceptable for streaming needs."],
+ ["Write events to Cloud SQL first","Adds a bottleneck and complexity."],
+ ["Increase the insertAll retry count","More retries mean more duplicates."]],0,
+ "Modern BigQuery streaming → Storage Write API."),
+Q("d3q27","BigQuery features","An analyst needs to join BigQuery sales data with a small, frequently updated customers table in Cloud SQL once a day. You don't want to build a pipeline to copy the data. What should you use?",[
+ ["A federated query with EXTERNAL_QUERY to Cloud SQL","Correct. Queries Cloud SQL live from BigQuery, with no copy and no pipeline."],
+ ["Datastream CDC into BigQuery","Valid for continuous replication, but more setup than a daily lookup of a small table needs."],
+ ["Export Cloud SQL to CSV every day manually","Manual and error-prone."],
+ ["Move the application database to BigQuery","BigQuery isn't an OLTP database."]],0,
+ "Occasional join with Cloud SQL, no copy → federated query."),
+Q("d3q28","BigQuery features","Your company's raw data is stored as Parquet files in Amazon S3 and must not be moved for contractual reasons. Analysts want to query it with BigQuery SQL. What should you use?",[
+ ["Storage Transfer Service to GCS, then load","Moves the data, which the contract forbids."],
+ ["BigQuery Omni with BigLake tables over the S3 data","Correct. Omni runs BigQuery in AWS next to the data, without moving it."],
+ ["A Dataproc cluster on Google Cloud reading S3","Still pulls data across clouds and means managing clusters."],
+ ["Cloud SQL with an S3 foreign data wrapper","Not a supported or scalable approach."]],1,
+ "Data in another cloud that can't move → BigQuery Omni / BigLake."),
+Q("d3q29","BigQuery features","Analysts complain that their BigQuery queries are too expensive (on-demand pricing). Which TWO changes reduce bytes processed?",[
+ ["Select only the columns needed instead of SELECT *","Correct. BigQuery is columnar, so unread columns aren't billed."],
+ ["Add LIMIT 100 to every query","LIMIT doesn't reduce bytes scanned on normal tables."],
+ ["Filter on the table's partitioning column","Correct. Partition pruning skips whole partitions."],
+ ["Run queries with batch priority","Batch priority changes scheduling, not bytes billed."]],[0,2],
+ "On-demand cost = bytes scanned. Fewer columns + partition/cluster filters."),
+Q("d3q30","Data lake & Dataplex","A data platform team wants automatic, scheduled checks that a BigQuery table's <code>order_total</code> is never negative and <code>order_id</code> is unique, with alerts when rules fail. Which managed feature fits best?",[
+ ["Dataplex data quality scans","Correct. Define rules (range, uniqueness, not-null) and run them on a schedule with alerting."],
+ ["Cloud Storage lifecycle rules","Manage object age and class, not data quality."],
+ ["BigQuery table expiration","Deletes tables. It doesn't validate them."],
+ ["Bigtable garbage collection","Unrelated to BigQuery data quality."]],0,
+ "Managed data quality rules across lake + warehouse → Dataplex (Dataform assertions are the SQL-pipeline alternative)."),
+Q("d3q31","Data lake & Dataplex","A Spark job on Dataproc reads millions of 5 KB JSON files from Cloud Storage and runs very slowly. What should you do?",[
+ ["Switch the bucket to Coldline","Makes reads more expensive and doesn't help speed."],
+ ["Compact the small files into fewer, larger files (e.g. 128 MB+ Avro or Parquet)","Correct. Per-file overhead dominates with tiny files. Fewer large columnar files are much faster."],
+ ["Add more Dataproc master nodes","The bottleneck is file overhead, not the master."],
+ ["Enable object versioning","Unrelated to performance."]],1,
+ "Many tiny files → compact them into bigger (columnar) files."),
+Q("d3q32","Warehouse modelling","In a BigQuery star schema, a product dimension changes rarely, and analysts must see each sale with the product category that was valid at the time of the sale. Which approach?",[
+ ["SCD Type 1: overwrite the category","Loses history, so old sales would show the new category."],
+ ["SCD Type 2: add valid_from / valid_to / is_current rows, maintained with MERGE","Correct. Keeps every version of the product, so sales join to the category valid at sale time."],
+ ["Store the category only in Cloud SQL","Doesn't keep history either."],
+ ["Recreate the dimension table every night","Rebuilding without history still loses past versions."]],1,
+ "Need history of dimension changes → SCD Type 2."),
+
+/* ---------- mock-only questions (never shown in quizzes) ---------- */
+Q("d3m01","Choosing storage","An ad-tech platform must look up a user's segment profile by user ID at 200,000 reads per second with p99 latency under 10 ms. The dataset is 40 TB and grows daily. Which service?",[
+ ["BigQuery with BI Engine","BI Engine accelerates dashboards, not 200k QPS point lookups."],
+ ["Bigtable","Correct. High-QPS key lookups with single-digit-ms latency at TB–PB scale."],
+ ["Cloud SQL with read replicas","Replicas can't reach this QPS on 40 TB."],
+ ["Firestore","Not designed for this QPS on 40 TB of key-value profiles."]],1,null,true),
+Q("d3m02","Choosing storage","A payments company needs a ledger database with ACID transactions across accounts in Asia, Europe and the US, external consistency, and 99.999% availability. Which service?",[
+ ["Cloud SQL with HA in each region","Separate databases per region can't give global consistency."],
+ ["Bigtable with replication","Eventually consistent, with no multi-row transactions."],
+ ["Spanner in a multi-region configuration","Correct. Global ACID, external consistency, 99.999% SLA."],
+ ["AlloyDB with read pools","Regional, so it can't serve global writes with strong consistency."]],2,null,true),
+Q("d3m03","Cloud SQL","A developer accidentally deleted rows from a Cloud SQL for PostgreSQL database 2 hours ago. Automated backups and point-in-time recovery are enabled. What's the best way to recover?",[
+ ["Restore last night's automated backup","Loses everything written since last night."],
+ ["Use point-in-time recovery to a clone just before the deletion, then copy the rows back","Correct. PITR restores to an exact timestamp without discarding later data in production."],
+ ["Promote a read replica","The replica has already replicated the delete."],
+ ["Use BigQuery time travel","That only applies to BigQuery tables."]],1,null,true),
+Q("d3m04","BigQuery design","A daily-partitioned BigQuery table must only keep the most recent 400 days of data, with no manual cleanup. What should you configure?",[
+ ["A scheduled query that deletes old rows daily","Works, but it's a manual job you have to maintain. There's a built-in setting."],
+ ["Partition expiration of 400 days","Correct. Old partitions are deleted automatically."],
+ ["Long-term storage pricing","Reduces cost of old data but doesn't delete it."],
+ ["Table expiration of 400 days","Deletes the entire table after 400 days."]],1,null,true),
+Q("d3m05","BigQuery features","Data scientists want a writable copy of a 30 TB production table to test transformations, without paying to store a full second copy. What should you use?",[
+ ["CREATE TABLE AS SELECT * into a sandbox dataset","Creates a full copy that is billed as full storage."],
+ ["A table clone","Correct. Clones are writable and you only pay for data that changes from the base table."],
+ ["A table snapshot","Snapshots are read-only."],
+ ["A logical view","Read-only, and every query runs against production."]],1,null,true),
+Q("d3m06","BigQuery features","Compliance requires monthly point-in-time copies of a BigQuery table to be kept for one year, at low cost. What should you do?",[
+ ["Rely on time travel","Time travel covers at most 7 days."],
+ ["Create a table snapshot each month with a 365-day expiration","Correct. Snapshots are cheap point-in-time copies (you pay only for changed data) with configurable expiration."],
+ ["Copy the full table to a new table each month","Works, but full copies cost far more storage."],
+ ["Rely on fail-safe","Fail-safe is 7 days and only through Google support."]],1,null,true),
+Q("d3m07","Bigtable","You're benchmarking a new Bigtable schema before launch. The test shows poor performance after 2 minutes on a 10 GB dataset. What should you change about the test?",[
+ ["Nothing, the schema is bad","The test itself is unrealistic. Bigtable needs more data and time to balance."],
+ ["Use at least ~300 GB of data and run the test for 10+ minutes on a production instance","Correct. Bigtable rebalances tablets over time, so small, short tests give misleading results."],
+ ["Switch to HDD for the test","HDD is slower, and you can't switch storage type in place anyway."],
+ ["Test on a development instance","Too small to be representative."]],1,null,true),
+Q("d3m08","Choosing storage","A web shop's product catalog (2 million products, about 20 GB) must be filterable by brand, price range and category, and updated by an admin app. The team wants a serverless database with minimal operations. Which fits best?",[
+ ["Bigtable","No secondary indexes, so filtering by several attributes means full scans. It's also overkill for 20 GB."],
+ ["Firestore","Correct. Serverless documents with automatic and composite indexes for multi-field queries."],
+ ["BigQuery","Analytical latency isn't ideal for interactive shop filtering."],
+ ["Memorystore","A cache, not a system of record."]],1,null,true),
+Q("d3m09","Cloud Storage","A bucket's access pattern is unknown: some objects are read daily, others never. You want to minimize cost without designing lifecycle rules. What should you enable?",[
+ ["Autoclass","Correct. Autoclass moves each object to the right class based on actual access."],
+ ["Nearline as the default class","Penalizes frequently read objects with retrieval fees."],
+ ["Object versioning","Increases cost."],
+ ["Turbo replication","For RPO, not cost."]],0,null,true),
+Q("d3m10","Warehouse modelling","A finance dataset in BigQuery has a 2-billion-row fact table and five small dimension tables. Queries join them and are reasonably fast. A colleague insists everything must be flattened into one giant table. What's the best response?",[
+ ["Agree: BigQuery can never join tables efficiently","BigQuery handles star schemas with small dimensions well."],
+ ["A star schema with small dimensions is fine in BigQuery; denormalize (nested fields) mainly where large joins hurt","Correct. Denormalize where it helps, but small dimension joins aren't a problem."],
+ ["Move the dimensions to Cloud SQL and use federated queries","Adds latency and complexity for no benefit."],
+ ["Shard the fact table by month","Partition instead of sharding, and sharding isn't the issue here anyway."]],1,null,true),
+Q("d3m11","Data lake & Dataplex","Your organization wants each business domain to own its data while a central team enforces security policies and makes all data discoverable in one catalog, without copying data. Which approach matches this data mesh goal?",[
+ ["A single central BigQuery project that all teams load into","Centralizes ownership, the opposite of data mesh."],
+ ["Dataplex lakes per domain with central governance and Dataplex Universal Catalog, sharing data products via Analytics Hub","Correct. Federated governance: domain ownership plus central policies and discovery."],
+ ["Separate projects with no shared catalog","No central governance or discovery."],
+ ["Copy all data nightly to Cloud Storage for the central team","Duplicates data and still doesn't provide governance."]],1,null,true),
+Q("d3m12","Spanner","An analytics team wants to run heavy queries on a production Spanner database without affecting OLTP latency. What should you recommend?",[
+ ["Add read-only replicas and run the analytics on them","Helps somewhat, but the analytics still compete for capacity on those replicas."],
+ ["Use Spanner Data Boost (e.g. via BigQuery federated queries)","Correct. Data Boost runs analytics on separate, on-demand compute, isolated from the OLTP workload."],
+ ["Export to CSV nightly","Stale and manual."],
+ ["Double the Spanner nodes","Expensive, and doesn't isolate the workloads."]],1,null,true)
+);
+
+PDE.flash.push(
+ {id:"f3-01",d:"d3",f:"Key lookups, &lt;10 ms, IoT / time series, TB–PB",b:"Bigtable",x:"Row key is the only index."},
+ {id:"f3-02",d:"d3",f:"Global relational DB, strong consistency, 99.999%",b:"Spanner"},
+ {id:"f3-03",d:"d3",f:"Regional MySQL / Postgres, moderate size",b:"Cloud SQL",x:"Scales up, not out."},
+ {id:"f3-04",d:"d3",f:"Postgres, more performance + analytics on live data",b:"AlloyDB",x:"Columnar engine = HTAP."},
+ {id:"f3-05",d:"d3",f:"Mobile app documents with offline sync",b:"Firestore"},
+ {id:"f3-06",d:"d3",f:"Sub-millisecond cache, sessions, leaderboards",b:"Memorystore"},
+ {id:"f3-07",d:"d3",f:"Must not be deleted for 7 years, even by admins",b:"Retention policy + Bucket Lock",x:"WORM."},
+ {id:"f3-08",d:"d3",f:"Nearline / Coldline / Archive minimum durations",b:"30 / 90 / 365 days"},
+ {id:"f3-09",d:"d3",f:"Access pattern unknown, minimize GCS cost",b:"Autoclass"},
+ {id:"f3-10",d:"d3",f:"Bigtable: one node overloaded",b:"Row-key hotspot",x:"Key Visualizer → redesign the key (field promotion)."},
+ {id:"f3-11",d:"d3",f:"Bigtable: newest data first",b:"Reverse timestamp in the row key"},
+ {id:"f3-12",d:"d3",f:"Bigtable: isolate batch analytics from serving",b:"Replication + single-cluster app profiles"},
+ {id:"f3-13",d:"d3",f:"Bigtable: change HDD to SSD",b:"New instance + copy data",x:"Storage type can't be changed in place."},
+ {id:"f3-14",d:"d3",f:"Spanner write hotspot",b:"Monotonically increasing primary key → use UUIDv4"},
+ {id:"f3-15",d:"d3",f:"Spanner parent-child rows read together",b:"Interleaved tables"},
+ {id:"f3-16",d:"d3",f:"Reduce bytes scanned on date-filtered queries",b:"Partition by date + require partition filter"},
+ {id:"f3-17",d:"d3",f:"Speed up filters on a high-cardinality column",b:"Clustering (≤ 4 columns)"},
+ {id:"f3-18",d:"d3",f:"Does LIMIT reduce BigQuery cost?",b:"No",x:"Bytes scanned stay the same on normal tables."},
+ {id:"f3-19",d:"d3",f:"Avoid joins between orders and line items in BigQuery",b:"Nested & repeated fields"},
+ {id:"f3-20",d:"d3",f:"Fastest BigQuery load format",b:"Avro"},
+ {id:"f3-21",d:"d3",f:"Modern streaming into BigQuery",b:"Storage Write API"},
+ {id:"f3-22",d:"d3",f:"Undo a bad UPDATE from this morning",b:"Time travel (FOR SYSTEM_TIME AS OF)",x:"Up to 7 days."},
+ {id:"f3-23",d:"d3",f:"Writable cheap copy of a big table",b:"Table clone",x:"Snapshot = read-only."},
+ {id:"f3-24",d:"d3",f:"Query S3 data without moving it",b:"BigQuery Omni / BigLake"},
+ {id:"f3-25",d:"d3",f:"Cloud SQL survives a region outage",b:"Cross-region read replica (promote)",x:"HA only covers zones."},
+ {id:"f3-26",d:"d3",f:"Catalog + quality + lineage across lake and warehouse",b:"Dataplex"},
+ {id:"f3-27",d:"d3",f:"Make an existing table partitioned",b:"CREATE TABLE … PARTITION BY … AS SELECT"},
+ {id:"f3-28",d:"d3",f:"GCS 15-minute RPO across two named regions",b:"Dual-region + turbo replication"}
+);
+})();
+
+/* PDE Academy — single-file offline app. Data in window.PDE (domains, lessons, questions, flashcards, tools). */
+(function(){
+"use strict";
+const D = window.PDE;
+const KEY = "pde-academy-v1";
+const $ = s => document.querySelector(s);
+const app = $("#app");
+
+/* ---------- state ---------- */
+let mem = null;
+function blank(){return {quiz:{},lessons:{},wrong:{},flash:{},days:[],exam:"",mocks:[],flags:{}};}
+function load(){
+  try{const s=localStorage.getItem(KEY); if(s){const o=JSON.parse(s); return Object.assign(blank(),o);} }catch(e){}
+  return mem || blank();
+}
+let S = load();
+function save(){ mem=S; try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} }
+function today(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function touch(){const t=today(); if(!S.days.includes(t)){S.days.push(t); if(S.days.length>400)S.days.shift();} save();}
+function streak(){
+  const set=new Set(S.days); let n=0; const d=new Date();
+  if(!set.has(today())) d.setDate(d.getDate()-1);
+  while(true){const k=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); if(set.has(k)){n++;d.setDate(d.getDate()-1);} else break;}
+  return n;
+}
+function toast(t){const e=document.createElement("div");e.className="toast";e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),1900);}
+
+/* ---------- helpers ---------- */
+const dom = id => D.domains.find(d=>d.id===id);
+const qById = id => D.questions.find(q=>q.id===id);
+const quizPool = d => D.questions.filter(q=>q.d===d && !q.mock);
+const mockPool = () => D.questions.filter(q=>q.mock);
+const L = "ABCDEFGH";
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function top(title,backTo){return `<div class="top"><button class="back" onclick="location.hash='${backTo}'" aria-label="Back">‹</button><div class="t">${title}</div></div>`;}
+function domStats(d){
+  const qs=quizPool(d); let seen=0,ok=0;
+  qs.forEach(q=>{const r=S.quiz[q.id]; if(r){seen++; if(r.last)ok++;}});
+  const ls=(dom(d).lessons||[]); const ld=ls.filter(l=>S.lessons[l.id]).length;
+  return {total:qs.length,seen,ok,acc:seen?Math.round(ok/seen*100):0,lessons:ls.length,ldone:ld};
+}
+function readiness(d){
+  const s=domStats(d); if(!s.total)return 0;
+  const cover=s.seen/s.total, lesson=s.lessons?s.ldone/s.lessons:0;
+  return Math.round((0.6*(s.ok/s.total)+0.25*cover+0.15*lesson)*100);
+}
+function record(q,correct){
+  const r=S.quiz[q.id]||{a:0,c:0}; r.a++; if(correct)r.c++; r.last=correct; S.quiz[q.id]=r;
+  if(!correct) S.wrong[q.id]=Date.now(); else if(S.wrong[q.id]) { r.fixed=(r.fixed||0)+1; if(r.fixed>=2) delete S.wrong[q.id]; }
+  touch();
+}
+function nav(cur){
+  const it=[["home","⌂","Home"],["learn","▤","Learn"],["practice","✎","Practice"],["notebook","✕","Mistakes"],["progress","◔","Progress"]];
+  return `<nav class="bn">${it.map(([h,i,t])=>`<a href="#${h}" class="${cur===h?"on":""}"><span class="i">${i}</span>${t}</a>`).join("")}</nav>`;
+}
+function render(html,cur){app.innerHTML=`<main>${html}</main>${nav(cur)}`; window.scrollTo(0,0);}
+
+/* ---------- views ---------- */
+function vHome(){
+  const days = S.exam ? Math.ceil((new Date(S.exam+"T09:00")-new Date())/864e5) : null;
+  const wrongN=Object.keys(S.wrong).length, due=dueCards().length;
+  const nextL = nextLesson();
+  render(`
+  <div class="card hero">
+    <small class="muted">Google Cloud · Professional Data Engineer</small>
+    <h1 style="margin:4px 0 10px">PDE Academy</h1>
+    <div class="grid2">
+      <div class="stat"><b>${days===null?"—":(days<0?"Done":days)}</b><small class="muted">${days===null?"Set exam date":"days to exam"}</small></div>
+      <div class="stat"><b>${streak()}🔥</b><small class="muted">day streak</small></div>
+    </div>
+    ${days===null?`<button class="btn ghost block" style="margin-top:10px;background:rgba(255,255,255,.14);color:#fff" onclick="PDEapp.setExam()">Set my exam date</button>`:""}
+  </div>
+  ${nextL?`<div class="sec">Continue</div>
+  <a class="tile" href="#lesson-${nextL.id}"><div class="ic" style="background:${dom(nextL.d).color}">${dom(nextL.d).n}</div><div class="tx"><b>${nextL.title}</b><small class="muted">${dom(nextL.d).short} · ${nextL.mins} min lesson</small></div><span class="chev">›</span></a>`:""}
+  <div class="sec">Quick practice</div>
+  <a class="tile" href="#daily"><div class="ic" style="background:#4f46e5">10</div><div class="tx"><b>Daily 10</b><small class="muted">Mixed questions from unlocked domains</small></div><span class="chev">›</span></a>
+  <a class="tile" href="#flash"><div class="ic" style="background:#0f766e">FC</div><div class="tx"><b>Flashcards</b><small class="muted">${due} due today</small></div><span class="chev">›</span></a>
+  <a class="tile" href="#notebook"><div class="ic" style="background:#dc2626">${wrongN}</div><div class="tx"><b>Mistakes notebook</b><small class="muted">Questions you got wrong, ready to retry</small></div><span class="chev">›</span></a>
+  <div class="sec">Readiness</div>
+  <div class="card">${D.domains.map(d=>{const r=d.ready?readiness(d.id):0;return `<div style="margin:8px 0"><div class="row"><b style="flex:1;font-size:14px">${d.n}. ${d.short}</b><small class="muted">${d.ready?r+"%":"coming soon"}</small></div><div class="bar"><i style="width:${r}%;background:${d.color}"></i></div></div>`}).join("")}</div>
+  `,"home");
+}
+function nextLesson(){
+  for(const d of D.domains){ if(!d.ready)continue; for(const l of d.lessons){ if(!S.lessons[l.id]) return Object.assign({d:d.id},l);} }
+  return null;
+}
+function vLearn(){
+  render(`<h1>Learn</h1><p class="muted">Recommended order: start with Storing (3), then Ingesting (2). Storage choices show up in every other domain.</p>
+  ${D.order.map(id=>{const d=dom(id); const s=d.ready?domStats(id):null;
+    return `<a class="tile ${d.ready?"":"locked"}" href="${d.ready?"#d-"+id:"#learn"}"><div class="ic" style="background:${d.color}">${d.n}</div><div class="tx"><b>${d.name}</b><small class="muted">~${d.w}% of exam · ${d.ready?`${s.ldone}/${s.lessons} lessons · ${s.seen}/${s.total} questions`:"Coming next"}</small></div><span class="chev">${d.ready?"›":"🔒"}</span></a>`}).join("")}`,"learn");
+}
+function vDomain(id){
+  const d=dom(id); if(!d||!d.ready) return go("learn");
+  const s=domStats(id);
+  render(`${top(d.short,"learn")}
+  <div class="card" style="background:${d.color};color:#fff;border:none"><small style="opacity:.85">Domain ${d.n} · ~${d.w}% of the exam</small><h2 style="margin:4px 0">${d.name}</h2><p style="opacity:.92;margin:0">${d.blurb}</p></div>
+  <div class="sec">Lessons</div>
+  ${d.lessons.map((l,i)=>`<a class="tile" href="#lesson-${l.id}"><div class="ic" style="background:${S.lessons[l.id]?"var(--good)":d.color}">${S.lessons[l.id]?"✓":i+1}</div><div class="tx"><b>${l.title}</b><small class="muted">${l.mins} min</small></div><span class="chev">›</span></a>`).join("")}
+  ${(d.tools||[]).length?`<div class="sec">Interactive tools</div>`+d.tools.map(t=>`<a class="tile" href="#tool-${t}"><div class="ic" style="background:#0f766e">⚙</div><div class="tx"><b>${D.tools[t].title}</b><small class="muted">${D.tools[t].sub}</small></div><span class="chev">›</span></a>`).join(""):""}
+  <div class="sec">Practice</div>
+  <a class="tile" href="#quiz-${id}"><div class="ic" style="background:#4f46e5">Q</div><div class="tx"><b>Domain quiz</b><small class="muted">${s.total} questions · ${s.seen} seen · ${s.acc}% correct</small></div><span class="chev">›</span></a>
+  <a class="tile" href="#quizn-${id}"><div class="ic" style="background:#7c3aed">★</div><div class="tx"><b>Only new or wrong</b><small class="muted">Skip what you've already mastered</small></div><span class="chev">›</span></a>
+  `,"learn");
+}
+
+/* lessons */
+let LS=null;
+function vLesson(id){
+  let d,l; for(const x of D.domains){const f=(x.lessons||[]).find(y=>y.id===id); if(f){d=x;l=f;}}
+  if(!l) return go("learn");
+  if(!LS||LS.id!==id) LS={id,step:0,opened:null};
+  const steps=[{k:"open"},...l.cards.map(c=>({k:"card",c})),{k:"keys"}];
+  const st=steps[LS.step];
+  let body="";
+  if(st.k==="open"){
+    const q=l.opener;
+    body=`<div class="pill">Warm-up question</div><h2 style="margin-top:8px">${l.title}</h2><p class="muted">Try this first. Getting it wrong is fine: the lesson explains it.</p>
+    <div class="qstem">${q.q}</div>
+    ${q.opts.map((o,i)=>{let cls="",why="";if(LS.opened!==null){cls=i===q.ans?"ok":(i===LS.opened?"no":"");}
+      return `<button class="opt ${cls}" ${LS.opened!==null?"disabled":""} onclick="PDEapp.open(${i})"><span class="k">${L[i]}</span><span>${o}</span></button>`}).join("")}
+    ${LS.opened!==null?`<div class="verdict ${LS.opened===q.ans?"ok":"no"}">${LS.opened===q.ans?"Nice, you got it.":"Not quite. Let's see why."}</div><p>${q.why}</p>`:""}`;
+  } else if(st.k==="card"){
+    body=`<div class="pill">${LS.step}/${l.cards.length}</div><h2 style="margin-top:8px">${st.c.h}</h2>${st.c.b}`;
+  } else {
+    body=`<div class="pill done">Key takeaways</div><h2 style="margin-top:8px">Remember this</h2><ul>${l.keys.map(k=>`<li>${k}</li>`).join("")}</ul>`;
+  }
+  const last=LS.step===steps.length-1, canNext = st.k!=="open"||LS.opened!==null;
+  render(`${top(l.title,"d-"+d.id)}
+  <div class="card lcard">${body}</div>
+  <div class="dots">${steps.map((_,i)=>`<i class="${i===LS.step?"on":""}"></i>`).join("")}</div>
+  <div class="row">
+    <button class="btn ghost" style="flex:1" ${LS.step===0?"disabled":""} onclick="PDEapp.lstep(-1)">Back</button>
+    ${last?`<button class="btn good" style="flex:2" onclick="PDEapp.ldone('${l.id}','${d.id}')">Finish lesson ✓</button>`:
+      `<button class="btn" style="flex:2" ${canNext?"":"disabled"} onclick="PDEapp.lstep(1)">${st.k==="open"&&LS.opened===null?"Pick an answer":"Next"}</button>`}
+  </div>`,"learn");
+}
+
+/* quiz engine (practice mode: instant feedback) */
+let Q=null;
+function startQuiz(list,title,back){
+  if(!list.length){toast("Nothing to practise here yet");return;}
+  Q={list:shuffle(list).map(q=>q.id),i:0,sel:[],done:false,score:0,title,back,wrong:[]};
+  vQuiz();
+}
+function vQuiz(){
+  if(!Q) return go("practice");
+  if(Q.i>=Q.list.length) return vQuizEnd();
+  const q=qById(Q.list[Q.i]); const multi=q.ans.length>1; const d=dom(q.d);
+  const opts=q.opts.map((o,i)=>{
+    let cls=Q.sel.includes(i)?"sel":"";
+    if(Q.done){cls=q.ans.includes(i)?"ok":(Q.sel.includes(i)?"no":"");}
+    return `<button class="opt ${cls}" ${Q.done?"disabled":""} onclick="PDEapp.pick(${i})"><span class="k">${L[i]}</span><span>${o.t}${Q.done?`<span class="why">${o.w}</span>`:""}</span></button>`;}).join("");
+  const correct = Q.done && same(Q.sel,q.ans);
+  render(`${top(Q.title,Q.back)}
+  <div class="qmeta"><span>Question ${Q.i+1} of ${Q.list.length}</span><span class="pill" style="background:${d.color};color:#fff">${q.topic}</span></div>
+  <div class="bar" style="margin-bottom:14px"><i style="width:${Q.i/Q.list.length*100}%"></i></div>
+  <div class="qstem">${q.q}</div>${multi?`<p class="muted" style="margin-top:-6px"><b>Choose ${q.ans.length}.</b></p>`:""}
+  ${opts}
+  ${Q.done?`<div class="verdict ${correct?"ok":"no"}">${correct?"Correct!":"Not this time."}</div>${q.tip?`<div class="box brain"><div class="l">Exam brain</div>${q.tip}</div>`:""}`:""}
+  <div class="sticky">${Q.done?`<button class="btn block" onclick="PDEapp.next()">${Q.i+1===Q.list.length?"See results":"Next question"}</button>`:
+     `<button class="btn block" ${Q.sel.length===q.ans.length?"":"disabled"} onclick="PDEapp.check()">Check answer</button>`}</div>`,"practice");
+}
+function same(a,b){return a.length===b.length&&a.every(x=>b.includes(x));}
+function vQuizEnd(){
+  const pct=Math.round(Q.score/Q.list.length*100);
+  render(`${top(Q.title,Q.back)}
+  <div class="card" style="text-align:center"><div style="font-size:52px;font-weight:800">${pct}%</div><p>${Q.score} of ${Q.list.length} correct</p><p class="muted">${pct>=80?"Exam-ready pace for this set. Keep it up.":pct>=60?"Close. Review the mistakes and run it again tomorrow.":"Re-read the lessons, then try again. That's how it sticks."}</p></div>
+  ${Q.wrong.length?`<div class="sec">Review your misses</div>`+Q.wrong.map(id=>{const q=qById(id);return `<div class="card"><div class="qstem" style="margin-bottom:6px">${q.q}</div><p><b>Answer:</b> ${q.ans.map(i=>L[i]+". "+q.opts[i].t).join(" · ")}</p><p class="muted">${q.ans.map(i=>q.opts[i].w).join(" ")}</p></div>`}).join(""):""}
+  <div class="row"><button class="btn ghost" style="flex:1" onclick="location.hash='${Q.back}'">Done</button>${Q.wrong.length?`<button class="btn" style="flex:1" onclick="PDEapp.retryWrong()">Retry misses</button>`:""}</div>`,"practice");
+}
+
+/* practice hub */
+function vPractice(){
+  const mp=mockPool().length;
+  render(`<h1>Practice</h1>
+  <div class="sec">Domain quizzes</div>
+  ${D.order.map(id=>{const d=dom(id);const s=d.ready?domStats(id):null;return `<a class="tile ${d.ready?"":"locked"}" href="${d.ready?"#quiz-"+id:"#practice"}"><div class="ic" style="background:${d.color}">${d.n}</div><div class="tx"><b>${d.short}</b><small class="muted">${d.ready?`${s.total} questions · ${s.acc}% correct`:"Coming next"}</small></div><span class="chev">${d.ready?"›":"🔒"}</span></a>`}).join("")}
+  <div class="sec">Drills</div>
+  <a class="tile" href="#daily"><div class="ic" style="background:#4f46e5">10</div><div class="tx"><b>Daily 10</b><small class="muted">Random mix</small></div><span class="chev">›</span></a>
+  <a class="tile" href="#flash"><div class="ic" style="background:#0f766e">FC</div><div class="tx"><b>Flashcards</b><small class="muted">${dueCards().length} due · spaced repetition</small></div><span class="chev">›</span></a>
+  ${Object.keys(D.tools).map(t=>`<a class="tile" href="#tool-${t}"><div class="ic" style="background:#0f766e">⚙</div><div class="tx"><b>${D.tools[t].title}</b><small class="muted">${D.tools[t].sub}</small></div><span class="chev">›</span></a>`).join("")}
+  <div class="sec">Exam simulation</div>
+  ${D.mocks.map(m=>{const ok=mockAvail(m);return `<a class="tile ${ok?"":"locked"}" href="${ok?"#mockintro-"+m.id:"#practice"}"><div class="ic" style="background:#171a26">M</div><div class="tx"><b>${m.title}</b><small class="muted">${ok?`${m.n} questions · ${m.min} min · no hints until the end`:m.lockText}</small></div><span class="chev">${ok?"›":"🔒"}</span></a>`}).join("")}
+  `,"practice");
+}
+function mockAvail(m){return mockPool().filter(q=>!m.domains||m.domains.includes(q.d)).length>=m.n;}
+
+/* daily */
+function vDaily(){const pool=D.questions.filter(q=>!q.mock&&dom(q.d).ready);startQuiz(shuffle(pool).slice(0,10),"Daily 10","home");}
+
+/* notebook */
+function vNotebook(){
+  const ids=Object.keys(S.wrong).sort((a,b)=>S.wrong[b]-S.wrong[a]).filter(qById);
+  render(`<h1>Mistakes notebook</h1><p class="muted">Every question you miss lands here. Get it right twice in a row and it leaves the notebook.</p>
+  ${ids.length?`<button class="btn block" onclick="PDEapp.retryAll()">Retry all ${ids.length}</button>`+ids.map(id=>{const q=qById(id);return `<div class="card"><div class="row" style="margin-bottom:6px"><span class="pill" style="background:${dom(q.d).color};color:#fff">${q.topic}</span></div><div>${q.q}</div><details style="margin-top:8px"><summary class="muted">Show answer</summary><p><b>${q.ans.map(i=>L[i]+". "+q.opts[i].t).join(" · ")}</b></p><p class="muted">${q.ans.map(i=>q.opts[i].w).join(" ")}</p></details></div>`}).join("")
+  :`<div class="card" style="text-align:center"><div style="font-size:40px">🎯</div><p>No mistakes saved yet. Go break something in a quiz.</p></div>`}`,"notebook");
+}
+
+/* flashcards: Leitner boxes */
+const INT=[0,1,2,4,8,16];
+function dueCards(){const t=today();return D.flash.filter(c=>dom(c.d).ready&&(!S.flash[c.id]||S.flash[c.id].due<=t));}
+let F=null;
+function vFlash(){
+  if(!F){const due=shuffle(dueCards()).slice(0,20);F={list:due.map(c=>c.id),i:0,flip:false,good:0};}
+  if(!F.list.length||F.i>=F.list.length){const n=F.list.length,g=F.good;F=null;
+    return render(`${top("Flashcards","practice")}<div class="card" style="text-align:center"><div style="font-size:40px">✓</div><h2>${n?"Session done":"Nothing due"}</h2><p class="muted">${n?`${g}/${n} known. Cards you missed come back tomorrow.`:"All cards are scheduled for later. Come back tomorrow, or do a quiz."}</p><button class="btn block" onclick="PDEapp.flashAll()">Review all cards anyway</button></div>`,"practice");}
+  const c=D.flash.find(x=>x.id===F.list[F.i]);
+  render(`${top("Flashcards","practice")}
+  <div class="qmeta"><span>${F.i+1} / ${F.list.length}</span><span class="pill">${dom(c.d).short}</span></div>
+  <div class="flip ${F.flip?"f":""}" onclick="PDEapp.flip()"><div class="in"><div class="fc"><small class="muted">If the question says…</small>${c.f}</div><div class="fc b"><small style="color:#ffd166">Answer</small><b style="font-size:20px">${c.b}</b>${c.x?`<p style="font-size:14px;opacity:.85;margin-top:10px">${c.x}</p>`:""}</div></div></div>
+  ${F.flip?`<div class="row"><button class="btn bad" style="flex:1" onclick="PDEapp.fc(false)">Again</button><button class="btn good" style="flex:1" onclick="PDEapp.fc(true)">Got it</button></div>`:`<button class="btn block ghost" onclick="PDEapp.flip()">Tap card to flip</button>`}`,"practice");
+}
+function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+
+/* tools */
+let PK=null;
+function vTool(t){
+  const tool=D.tools[t]; if(!tool) return go("practice");
+  if(t==="picker") return vPicker(tool);
+  if(t==="transfer") return vTransfer(tool);
+}
+function vPicker(tool){
+  if(!PK) PK={node:"start",path:[]};
+  const n=tool.nodes[PK.node];
+  if(n.result){
+    return render(`${top(tool.title,"practice")}
+    <div class="result" style="background:${n.color||"var(--d3)"}"><small style="opacity:.85">Your answer</small><h2>${n.result}</h2><p style="margin:0;opacity:.95">${n.why}</p></div>
+    ${n.keys?`<div class="box brain"><div class="l">Exam keywords</div>${n.keys}</div>`:""}
+    ${n.trap?`<div class="box trap"><div class="l">Trap</div>${n.trap}</div>`:""}
+    <div class="card"><b>Your path</b><ul>${PK.path.map(p=>`<li>${p}</li>`).join("")}</ul></div>
+    <button class="btn block" onclick="PDEapp.pkReset()">Try another scenario</button>`,"practice");
+  }
+  render(`${top(tool.title,"practice")}<p class="muted">${tool.intro}</p>
+  <div class="card pk"><div class="pill">Step ${PK.path.length+1}</div><h2 style="margin-top:8px">${n.q}</h2>${n.hint?`<p class="muted">${n.hint}</p>`:""}
+  ${n.opts.map((o,i)=>`<button class="opt" onclick="PDEapp.pk(${i})"><span class="k">${L[i]}</span><span>${o[0]}</span></button>`).join("")}</div>
+  ${PK.path.length?`<button class="btn ghost block" onclick="PDEapp.pkReset()">Start over</button>`:""}`,"practice");
+}
+let TR={tb:100,mbps:1000};
+function vTransfer(tool){
+  const secs=TR.tb*8e12/(TR.mbps*1e6*0.8); const days=secs/86400;
+  let rec,why;
+  if(days>30){rec="Transfer Appliance";why="Over a month on the wire. Ship the data physically instead."}
+  else if(TR.tb<1){rec="gcloud storage cp (parallel)";why="Small enough for a direct command-line copy."}
+  else {rec="Storage Transfer Service";why="Manageable over the network. Use a managed, scheduled, resumable transfer."}
+  render(`${top(tool.title,"practice")}<p class="muted">${tool.intro}</p>
+  <div class="card"><label><b>Data size: ${TR.tb} TB</b></label><input type="range" min="0.1" max="2000" step="0.1" value="${TR.tb}" style="width:100%" oninput="PDEapp.tr('tb',this.value)">
+  <label><b>Bandwidth: ${TR.mbps>=1000?(TR.mbps/1000)+" Gbps":TR.mbps+" Mbps"}</b></label><input type="range" min="10" max="100000" step="10" value="${TR.mbps}" style="width:100%" oninput="PDEapp.tr('mbps',this.value)"></div>
+  <div class="result" style="background:#0891b2"><small style="opacity:.85">At ~80% link utilisation this takes</small><h2>${days<1?(days*24).toFixed(1)+" hours":days.toFixed(1)+" days"}</h2><p style="margin:0"><b>${rec}</b>: ${why}</p></div>
+  <div class="box brain"><div class="l">Rule of thumb</div>1 TB over 100 Mbps ≈ 1 day. 100 TB over 100 Mbps ≈ 3 months → Transfer Appliance. Exam questions give you size + bandwidth so you'll do this math.</div>`,"practice");
+}
+
+/* mock exam engine */
+let M=null, MT=null;
+function vMockIntro(id){
+  const m=D.mocks.find(x=>x.id===id); if(!m||!mockAvail(m)) return go("practice");
+  if(M&&!M.submitted&&M.id===id) return vMock();
+  const past=S.mocks.filter(x=>x.id===id);
+  render(`${top(m.title,"practice")}
+  <div class="card"><h2>Exam rules</h2><ul><li><b>${m.n} questions</b>, <b>${m.min} minutes</b>, timer runs even if you leave the page.</li><li>No feedback until you submit, just like the real exam.</li><li>Flag questions to come back to. Unanswered = wrong.</li><li>Results are broken down by domain at the end.</li></ul>
+  ${past.length?`<p class="muted">Previous attempts: ${past.map(p=>p.pct+"%").join(", ")}</p>`:""}
+  <button class="btn block" onclick="PDEapp.mockStart('${id}')">Start exam</button></div>`,"practice");
+}
+function mockStart(id){
+  const m=D.mocks.find(x=>x.id===id);
+  const pool=mockPool().filter(q=>!m.domains||m.domains.includes(q.d));
+  M={id,list:shuffle(pool).slice(0,m.n).map(q=>q.id),i:0,ans:{},flag:{},end:Date.now()+m.min*60000,title:m.title,submitted:false};
+  try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}
+  vMock();
+}
+function tick(){
+  if(!M||M.submitted){clearInterval(MT);MT=null;return;}
+  const left=M.end-Date.now(); const el=$("#timer");
+  if(left<=0){clearInterval(MT);MT=null;mockSubmit(true);return;}
+  if(el){const m=Math.floor(left/60000),s=Math.floor(left/1000)%60;el.textContent=`${m}:${String(s).padStart(2,"0")}`;el.className="timer"+(left<300000?" low":"");}
+}
+function vMock(showGrid){
+  if(!M) return go("practice");
+  if(M.submitted) return vMockResult();
+  const q=qById(M.list[M.i]); const sel=M.ans[q.id]||[]; const multi=q.ans.length>1;
+  const answered=Object.keys(M.ans).filter(k=>(M.ans[k]||[]).length).length;
+  render(`<div class="top"><div class="t">${M.title}</div><span id="timer" class="timer">--:--</span></div>
+  <div class="qmeta"><span>Question ${M.i+1} of ${M.list.length} · ${answered} answered</span><button class="flag ${M.flag[q.id]?"on":""}" onclick="PDEapp.mflag()">${M.flag[q.id]?"⚑ Flagged":"⚐ Flag"}</button></div>
+  <div class="qstem">${q.q}</div>${multi?`<p class="muted" style="margin-top:-6px"><b>Choose ${q.ans.length}.</b></p>`:""}
+  ${q.opts.map((o,i)=>`<button class="opt ${sel.includes(i)?"sel":""}" onclick="PDEapp.mpick(${i})"><span class="k">${L[i]}</span><span>${o.t}</span></button>`).join("")}
+  <div class="row" style="margin-top:12px"><button class="btn ghost" style="flex:1" ${M.i===0?"disabled":""} onclick="PDEapp.mgo(${M.i-1})">‹ Prev</button><button class="btn ghost" style="flex:1" onclick="PDEapp.mgrid()">All</button><button class="btn" style="flex:1" ${M.i===M.list.length-1?"disabled":""} onclick="PDEapp.mgo(${M.i+1})">Next ›</button></div>
+  ${showGrid?`<div class="card"><b>Jump to question</b><div class="navgrid">${M.list.map((id,i)=>`<button class="${(M.ans[id]||[]).length?"ans":""} ${M.flag[id]?"fl":""} ${i===M.i?"cur":""}" onclick="PDEapp.mgo(${i})">${i+1}</button>`).join("")}</div><small class="muted">Grey = answered · yellow = flagged</small></div>`:""}
+  <button class="btn block ${answered===M.list.length?"good":"ghost"}" style="margin-top:14px" onclick="PDEapp.msubmitAsk()">Submit exam</button>`,"practice");
+  if(!MT) MT=setInterval(tick,1000); tick();
+}
+function mockSubmit(auto){
+  M.submitted=true; clearInterval(MT); MT=null;
+  const by={}; let ok=0;
+  M.list.forEach(id=>{const q=qById(id); const c=same(M.ans[id]||[],q.ans); if(c)ok++; by[q.d]=by[q.d]||{n:0,ok:0}; by[q.d].n++; if(c)by[q.d].ok++; record(q,c);});
+  M.score=ok; M.by=by; M.pct=Math.round(ok/M.list.length*100);
+  S.mocks.push({id:M.id,date:today(),pct:M.pct,ok,n:M.list.length,by}); save();
+  try{sessionStorage.removeItem(KEY+"-mock");}catch(e){}
+  if(auto) toast("Time's up! Exam submitted.");
+  vMockResult();
+}
+function vMockResult(){
+  const pass=M.pct>=70;
+  render(`${top("Results","practice")}
+  <div class="card" style="text-align:center;background:${pass?"var(--goodl)":"var(--badl)"}"><div style="font-size:54px;font-weight:800">${M.pct}%</div><p><b>${M.score}/${M.list.length}</b> correct · ${pass?"Likely pass zone (≈70%+)":"Below the ≈70% pass zone"}</p></div>
+  <div class="card"><b>By domain</b>${Object.keys(M.by).map(d=>{const x=M.by[d];const p=Math.round(x.ok/x.n*100);return `<div style="margin:8px 0"><div class="row"><span style="flex:1;font-size:14px">${dom(d).n}. ${dom(d).short}</span><small>${x.ok}/${x.n}</small></div><div class="bar"><i style="width:${p}%;background:${dom(d).color}"></i></div></div>`}).join("")}</div>
+  <div class="sec">Review every question</div>
+  ${M.list.map((id,i)=>{const q=qById(id);const mine=M.ans[id]||[];const c=same(mine,q.ans);
+    return `<details class="card"><summary><b style="color:${c?"var(--good)":"var(--bad)"}">${c?"✓":"✕"} Q${i+1}</b> <span class="muted">${q.topic}</span></summary><div class="qstem" style="margin-top:10px">${q.q}</div>
+    ${q.opts.map((o,j)=>`<div class="opt ${q.ans.includes(j)?"ok":(mine.includes(j)?"no":"")}" style="cursor:default"><span class="k">${L[j]}</span><span>${o.t}<span class="why">${o.w}</span></span></div>`).join("")}
+    ${q.tip?`<div class="box brain"><div class="l">Exam brain</div>${q.tip}</div>`:""}</details>`}).join("")}
+  <button class="btn block" onclick="location.hash='practice'">Back to practice</button>`,"practice");
+}
+
+/* progress & backup */
+function vProgress(){
+  const tot=Object.keys(S.quiz).length, ok=Object.values(S.quiz).filter(r=>r.last).length;
+  render(`<h1>Progress</h1>
+  <div class="grid2"><div class="stat"><b>${tot}</b><small class="muted">questions seen</small></div><div class="stat"><b>${tot?Math.round(ok/tot*100):0}%</b><small class="muted">latest accuracy</small></div>
+  <div class="stat"><b>${Object.keys(S.lessons).length}</b><small class="muted">lessons done</small></div><div class="stat"><b>${streak()}🔥</b><small class="muted">day streak</small></div></div>
+  <div class="sec">By domain</div><div class="card">${D.domains.map(d=>{if(!d.ready)return `<div style="margin:8px 0" class="muted">${d.n}. ${d.short}: coming soon</div>`;const s=domStats(d.id);return `<div style="margin:10px 0"><div class="row"><b style="flex:1;font-size:14px">${d.n}. ${d.short}</b><small>${readiness(d.id)}% ready</small></div><div class="bar"><i style="width:${readiness(d.id)}%;background:${d.color}"></i></div><small class="muted">${s.ldone}/${s.lessons} lessons · ${s.seen}/${s.total} questions · ${s.acc}% correct</small></div>`}).join("")}</div>
+  <div class="sec">Mock exams</div><div class="card">${S.mocks.length?S.mocks.map(m=>`<div class="row" style="margin:6px 0"><span style="flex:1">${m.date} · ${(D.mocks.find(x=>x.id===m.id)||{title:m.id}).title}</span><b>${m.pct}%</b></div>`).join(""):`<span class="muted">No mock exams taken yet.</span>`}</div>
+  <div class="sec">Exam date</div><div class="card"><input type="date" value="${S.exam}" onchange="PDEapp.exam(this.value)"></div>
+  <div class="sec">Backup</div><div class="card"><p class="muted" style="margin-top:0">Progress is saved in this browser only. Copy a backup code now and then, so you can restore it on another device or after clearing the browser.</p>
+  <div class="row"><button class="btn ghost" style="flex:1" onclick="PDEapp.backup()">Copy backup code</button><button class="btn ghost" style="flex:1" onclick="PDEapp.restoreAsk()">Restore</button></div></div>
+  <button class="btn ghost block" style="margin-top:6px;color:var(--bad)" onclick="PDEapp.resetAsk()">Reset all progress</button>
+  <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">PDE Academy · v${D.version} · content aligned to the current 5-section exam guide</p>`,"progress");
+}
+function sheet(html){const m=document.createElement("div");m.className="modal";m.innerHTML=`<div class="sheet">${html}</div>`;m.onclick=e=>{if(e.target===m)m.remove();};document.body.appendChild(m);return m;}
+
+/* ---------- router ---------- */
+function go(h){location.hash=h;}
+function route(){
+  const h=(location.hash||"#home").slice(1);
+  if(M&&!M.submitted&&!h.startsWith("mock")){ /* keep mock alive */ }
+  if(h==="home")return vHome();
+  if(h==="learn")return vLearn();
+  if(h==="practice")return vPractice();
+  if(h==="notebook")return vNotebook();
+  if(h==="progress")return vProgress();
+  if(h==="flash"){F=null;return vFlash();}
+  if(h==="daily")return vDaily();
+  if(h==="mock")return vMock();
+  if(h.startsWith("d-"))return vDomain(h.slice(2));
+  if(h.startsWith("lesson-")){LS=null;return vLesson(h.slice(7));}
+  if(h.startsWith("quizn-")){const id=h.slice(6);const d=dom(id);return startQuiz(quizPool(id).filter(q=>!S.quiz[q.id]||!S.quiz[q.id].last),d.short+" · new & wrong","d-"+id);}
+  if(h.startsWith("quiz-")){const id=h.slice(5);const d=dom(id);if(!d||!d.ready)return go("practice");return startQuiz(quizPool(id),d.short+" quiz","d-"+id);}
+  if(h.startsWith("tool-")){PK=null;return vTool(h.slice(5));}
+  if(h.startsWith("mockintro-"))return vMockIntro(h.slice(10));
+  return vHome();
+}
+window.addEventListener("hashchange",route);
+
+/* ---------- actions ---------- */
+window.PDEapp={
+  setExam(){const m=sheet(`<h3>When is your exam?</h3><input type="date" id="ed" value="${S.exam}"><div class="row" style="margin-top:12px"><button class="btn ghost" style="flex:1" id="c">Cancel</button><button class="btn" style="flex:1" id="s">Save</button></div>`);
+    m.querySelector("#c").onclick=()=>m.remove(); m.querySelector("#s").onclick=()=>{S.exam=m.querySelector("#ed").value;save();m.remove();route();};},
+  exam(v){S.exam=v;save();toast("Exam date saved");},
+  open(i){LS.opened=i;vLesson(LS.id);},
+  lstep(n){LS.step+=n;vLesson(LS.id);},
+  ldone(id,d){S.lessons[id]=true;touch();toast("Lesson complete ✓");LS=null;go("d-"+d);},
+  pick(i){const q=qById(Q.list[Q.i]);if(Q.done)return;if(q.ans.length>1){Q.sel=Q.sel.includes(i)?Q.sel.filter(x=>x!==i):(Q.sel.length<q.ans.length?[...Q.sel,i]:Q.sel);}else Q.sel=[i];vQuiz();},
+  check(){const q=qById(Q.list[Q.i]);Q.done=true;const c=same(Q.sel,q.ans);if(c)Q.score++;else Q.wrong.push(q.id);record(q,c);vQuiz();},
+  next(){Q.i++;Q.sel=[];Q.done=false;vQuiz();},
+  retryWrong(){startQuiz(Q.wrong.map(qById),Q.title+" · retry",Q.back);},
+  retryAll(){startQuiz(Object.keys(S.wrong).map(qById).filter(Boolean),"Mistakes retry","notebook");},
+  flip(){F.flip=!F.flip;vFlash();},
+  fc(ok){const id=F.list[F.i];const r=S.flash[id]||{box:0};r.box=ok?Math.min(r.box+1,INT.length-1):0;r.due=addDays(ok?INT[r.box]:1);S.flash[id]=r;if(ok)F.good++;touch();F.i++;F.flip=false;vFlash();},
+  flashAll(){F={list:shuffle(D.flash.filter(c=>dom(c.d).ready)).map(c=>c.id),i:0,flip:false,good:0};vFlash();},
+  pk(i){const tool=D.tools.picker;const n=tool.nodes[PK.node];PK.path.push(n.q+" → "+n.opts[i][0]);PK.node=n.opts[i][1];vPicker(tool);},
+  pkReset(){PK=null;vPicker(D.tools.picker);},
+  tr(k,v){TR[k]=+v;vTransfer(D.tools.transfer);},
+  mockStart, mpick(i){const q=qById(M.list[M.i]);let s=M.ans[q.id]||[];if(q.ans.length>1){s=s.includes(i)?s.filter(x=>x!==i):(s.length<q.ans.length?[...s,i]:s);}else s=[i];M.ans[q.id]=s;try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}vMock();},
+  mgo(i){M.i=i;vMock();}, mgrid(){vMock(true);},
+  mflag(){const id=M.list[M.i];M.flag[id]=!M.flag[id];vMock();},
+  msubmitAsk(){const un=M.list.filter(id=>!(M.ans[id]||[]).length).length;const fl=Object.values(M.flag).filter(Boolean).length;
+    const m=sheet(`<h3>Submit exam?</h3><p>${un?`<b>${un}</b> unanswered. `:""}${fl?`<b>${fl}</b> flagged. `:""}You can't change answers after submitting.</p><div class="row"><button class="btn ghost" style="flex:1" id="c">Keep going</button><button class="btn" style="flex:1" id="s">Submit</button></div>`);
+    m.querySelector("#c").onclick=()=>m.remove();m.querySelector("#s").onclick=()=>{m.remove();mockSubmit(false);};},
+  backup(){const code=btoa(unescape(encodeURIComponent(JSON.stringify(S))));
+    const done=()=>toast("Backup code copied");
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(code).then(done,()=>showCode(code));}else showCode(code);},
+  restoreAsk(){const m=sheet(`<h3>Restore progress</h3><p class="muted">Paste a backup code. This replaces the progress on this device.</p><textarea id="t"></textarea><div class="row" style="margin-top:12px"><button class="btn ghost" style="flex:1" id="c">Cancel</button><button class="btn" style="flex:1" id="s">Restore</button></div>`);
+    m.querySelector("#c").onclick=()=>m.remove();m.querySelector("#s").onclick=()=>{try{S=Object.assign(blank(),JSON.parse(decodeURIComponent(escape(atob(m.querySelector("#t").value.trim())))));save();m.remove();toast("Progress restored");route();}catch(e){toast("That code didn't work");}};},
+  resetAsk(){const m=sheet(`<h3>Reset everything?</h3><p>All quiz history, lessons, flashcards and mock results on this device will be deleted.</p><div class="row"><button class="btn ghost" style="flex:1" id="c">Cancel</button><button class="btn bad" style="flex:1" id="s">Reset</button></div>`);
+    m.querySelector("#c").onclick=()=>m.remove();m.querySelector("#s").onclick=()=>{S=blank();save();m.remove();route();};}
+};
+function showCode(code){const m=sheet(`<h3>Your backup code</h3><p class="muted">Select all and copy it somewhere safe (e.g. a note).</p><textarea readonly>${esc(code)}</textarea><button class="btn block" style="margin-top:10px" id="c">Done</button>`);m.querySelector("#c").onclick=()=>m.remove();}
+
+/* resume an unfinished mock after reload */
+try{const s=sessionStorage.getItem(KEY+"-mock"); if(s){const o=JSON.parse(s); if(o&&!o.submitted&&o.end>Date.now()){M=o;}}}catch(e){}
+route();
+})();
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>
+</body></html>
