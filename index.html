@@ -124,7 +124,7 @@ textarea{min-height:110px}
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
 </head><body><div id="app"></div>
 <script>window.PDE = {
-version: "1.0",
+version: "1.1",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -596,6 +596,426 @@ PDE.flash.push(
 );
 })();
 
+(function(){
+const d2 = PDE.domains.find(d=>d.id==="d2");
+d2.ready = true;
+d2.tools = ["windows"];
+d2.lessons = [
+{id:"d2-l1",title:"The pipeline map & picking an engine",mins:4,
+ opener:{q:"A company runs 300 existing Spark jobs on-prem and wants to move them to Google Cloud quickly with minimal code changes. Which service?",
+  opts:["Dataflow","Dataproc","Cloud Data Fusion","BigQuery scheduled queries"],ans:1,
+  why:"\"Existing Spark/Hadoop + minimal changes\" is Dataproc's signature: managed Spark and Hadoop. Dataflow would mean rewriting the jobs in Apache Beam."},
+ cards:[
+  {h:"The canonical pipelines",b:`<p><b>Streaming:</b> <mark>Pub/Sub → Dataflow → BigQuery</mark> (analytics) and/or Bigtable (low-latency serving).</p><p><b>Batch:</b> GCS → Dataflow / Dataproc → BigQuery. Or simply <mark>GCS → BigQuery load job → SQL (ELT)</mark>, often the simplest correct answer.</p><div class="box pic"><div class="l">Picture it</div>Sources are farms, Pub/Sub is the truck depot, Dataflow is the factory, BigQuery is the warehouse, and Looker is the shop window.</div>`},
+  {h:"Which engine?",b:`<table><tr><th>Scenario says…</th><th>Pick</th></tr><tr><td>Existing Spark/Hadoop, minimal changes</td><td><mark>Dataproc</mark></td></tr><tr><td>New batch + streaming, serverless, autoscaling</td><td><mark>Dataflow</mark></td></tr><tr><td>Data already in BigQuery, SQL transforms</td><td>BigQuery SQL / Dataform</td></tr><tr><td>No-code, visual, many connectors</td><td><mark>Data Fusion</mark></td></tr><tr><td>Analysts clean messy files visually</td><td>Dataprep</td></tr><tr><td>React to one event with small logic</td><td>Cloud Run functions</td></tr><tr><td>Spark without managing clusters</td><td>Serverless for Apache Spark</td></tr></table>`}
+ ],
+ keys:["Lift & shift Spark/Hadoop → Dataproc; new serverless pipelines → Dataflow","Data already in BigQuery → ELT with SQL/Dataform","No-code → Data Fusion"]},
+
+{id:"d2-l2",title:"Pub/Sub fundamentals",mins:5,
+ opener:{q:"Two teams each need every message from the same Pub/Sub topic: the fraud team and the analytics team. What should you set up?",
+  opts:["One subscription shared by both teams' consumers","One subscription per team","Two topics with the publisher writing to both","A push subscription with two endpoints"],ans:1,
+  why:"Each subscription gets its own copy of every message. Consumers sharing one subscription split the messages between them (load balancing), so each team would only see part of the stream."},
+ cards:[
+  {h:"The post office",b:`<div class="box pic"><div class="l">Picture it</div>Publishers drop letters into a <b>topic</b>. Every <b>subscription</b> is a separate delivery route with its <b>own copy</b> of every letter. The subscriber must sign for (<b>ack</b>) each letter before the <b>ack deadline</b>, or it gets delivered again.</div><ul><li>Global, serverless, autoscaling. No brokers or partitions to manage.</li><li><mark>Two apps that both need all messages → two subscriptions.</mark> Workers sharing load → one subscription.</li></ul>`},
+  {h:"Delivery rules",b:`<ul><li><mark>At-least-once</mark> by default, so <b>duplicates can happen</b>. <b>Exactly-once delivery</b> can be enabled on pull subscriptions (regional).</li><li><mark>Order isn't guaranteed</mark> unless you use <b>ordering keys</b> (per key, e.g. per customer).</li><li><b>Pull</b>: subscriber asks for messages. High throughput, and Dataflow uses this. <b>Push</b>: Pub/Sub POSTs to an HTTPS endpoint (Cloud Run, webhooks).</li><li>Unacked messages are retained 7 days by default. Topics can also retain messages (up to 31 days).</li></ul>`},
+  {h:"Why you get duplicates",b:`<div class="box trap"><div class="l">Trap</div><mark>Lots of duplicates = the subscriber isn't acking before the deadline</mark> (slow processing). Fix: ack faster / extend the ack deadline, and make processing idempotent (dedupe on a unique ID). "Add more subscriptions" makes it worse.</div>`}
+ ],
+ keys:["Topic → many subscriptions; each subscription gets every message","At-least-once by default; ordering keys for per-key order","Duplicates usually mean slow acks"]},
+
+{id:"d2-l3",title:"Pub/Sub in production",mins:4,
+ opener:{q:"You're about to deploy a new version of a Pub/Sub subscriber that might have a bug. If it does, you want to reprocess every message it handled. What should you do before deploying?",
+  opts:["Increase the ack deadline","Create a snapshot of the subscription, and seek back to it if needed","Create a second topic","Enable message ordering"],ans:1,
+  why:"A snapshot records the subscription's acknowledgment state. Seeking to it makes Pub/Sub redeliver everything acked since then. You can also seek to a timestamp if acked messages are retained."},
+ cards:[
+  {h:"Replay & failure handling",b:`<ul><li><mark>Seek</mark> a subscription to a <b>snapshot</b> or a <b>timestamp</b> to reprocess messages (e.g. after a bad deploy).</li><li><mark>Dead-letter topic</mark>: after N failed delivery attempts the message is moved aside, so one poison message doesn't block everything.</li><li><b>Schemas</b> (Avro/Protobuf) on a topic reject malformed messages at publish time.</li></ul>`},
+  {h:"No-code sinks",b:`<ul><li><mark>BigQuery subscription</mark>: writes messages straight into a table, with no Dataflow.</li><li><b>Cloud Storage subscription</b>: writes batches of messages to files.</li><li>Use them when there's <b>no transformation</b>. Need windows, joins or enrichment? → Dataflow.</li></ul>`},
+  {h:"Watching the backlog",b:`<ul><li><code>num_undelivered_messages</code> and <mark>oldest_unacked_message_age</mark> rising means consumers can't keep up.</li><li>Fix the consumer: more workers (Dataflow max workers), faster processing, correct acking.</li><li>Pub/Sub Lite has been shut down. If old questions mention it, think Pub/Sub or Managed Kafka.</li></ul><div class="box brain"><div class="l">Kafka on GCP</div>Existing Kafka apps, minimal changes → <b>Managed Service for Apache Kafka</b>. Open to change, least ops → <b>Pub/Sub</b>.</div>`}
+ ],
+ keys:["Replay → seek to snapshot/timestamp","Poison messages → dead-letter topic","No transform needed → BigQuery subscription"]},
+
+{id:"d2-l4",title:"Apache Beam building blocks",mins:5,
+ opener:{q:"Each streaming transaction must be enriched with the customer's tier from a 5 MB reference table that changes daily. What's the idiomatic Beam approach?",
+  opts:["Call Cloud SQL for every element","Load the table as a side input","CoGroupByKey the stream with the table","Write the stream to BigQuery and join later"],ans:1,
+  why:"A side input broadcasts a small dataset to every worker, which is perfect for a small lookup table. Per-element database calls are slow and fragile."},
+ cards:[
+  {h:"The vocabulary",b:`<table><tr><th>Term</th><th>Meaning</th></tr><tr><td>Pipeline</td><td>Read → transform → write</td></tr><tr><td>PCollection</td><td>Distributed dataset. Bounded = batch, unbounded = stream</td></tr><tr><td>ParDo / DoFn</td><td>Per-element map / filter / flatMap</td></tr><tr><td>GroupByKey</td><td>Group values by key</td></tr><tr><td><mark>Combine</mark></td><td>Efficient aggregation (sum, count, mean) with partial pre-aggregation</td></tr><tr><td><mark>CoGroupByKey</mark></td><td>Join two PCollections by key</td></tr><tr><td>Flatten / Partition</td><td>Merge / split PCollections</td></tr></table>`},
+  {h:"Patterns the exam loves",b:`<ul><li><mark>Side input</mark>: small lookup data available to every worker (rates, tiers, config).</li><li><mark>Multiple (tagged) outputs</mark>: valid rows → BigQuery, invalid → a <b>dead-letter</b> table/GCS. Bad records shouldn't fail the whole job.</li><li><b>Combine instead of GroupByKey + manual sum</b>: less shuffle, faster.</li><li>Runners: DataflowRunner (cloud), <b>DirectRunner</b> (local testing). Beam also runs on Flink and Spark (portability).</li></ul>`}
+ ],
+ keys:["Small lookup → side input; join two streams → CoGroupByKey","Bad records → tagged dead-letter output","Aggregations → Combine"]},
+
+{id:"d2-l5",title:"Event time, watermarks & windows",mins:6,
+ opener:{q:"A mobile game sends events that can be delayed by hours when phones are offline. You need accurate hourly totals based on when events actually happened. What should you window on?",
+  opts:["Processing time (arrival time)","Event time from a timestamp inside each event","Pub/Sub publish time","The Dataflow job start time"],ans:1,
+  why:"Event time is when the thing happened. Windowing on processing time would put a delayed 09:55 event into the 13:00 hour. Assign timestamps from the payload and window on event time."},
+ cards:[
+  {h:"Two clocks",b:`<div class="box pic"><div class="l">Picture it</div>You take photos in Bali on Monday, but upload them from Jakarta on Friday. <b>Event time</b> = Monday (when it happened). <b>Processing time</b> = Friday (when the server saw it). <mark>Correct analytics group by event time.</mark></div><p>The <mark>watermark</mark> is Dataflow's running estimate of "I've probably seen all events up to time T". When the watermark passes the end of a window, the window can produce its result.</p>`},
+  {h:"Four window types",b:`<table><tr><th>Window</th><th>Shape</th><th>Phrase</th></tr><tr><td><mark>Fixed</mark> (tumbling)</td><td>Equal, non-overlapping</td><td>"every 5 minutes"</td></tr><tr><td><mark>Sliding</mark> (hopping)</td><td>Overlapping: size + period</td><td>"last hour, updated every 5 min", moving average</td></tr><tr><td><mark>Session</mark></td><td>Per key, closes after an inactivity <b>gap</b></td><td>"user sessions", "until idle 30 min"</td></tr><tr><td>Global</td><td>One window forever (default)</td><td>Needs triggers on streams</td></tr></table><p>Open the <b>Window Playground</b> tool to see each type group the same events.</p>`}
+ ],
+ keys:["Window on event time, not arrival time","Watermark = estimate of completeness","Fixed = every N · sliding = last N every M · session = until idle"]},
+
+{id:"d2-l6",title:"Triggers, lateness & accumulation",mins:5,
+ opener:{q:"Late events (up to 30 minutes late) are silently missing from your Dataflow window results. Event-time windows are configured correctly. What's the most likely cause?",
+  opts:["Pub/Sub is dropping messages","Allowed lateness is 0 (the default), so late data is discarded","The pipeline uses fixed windows","Autoscaling is disabled"],ans:1,
+  why:"By default allowed lateness is zero: data arriving after the watermark has passed the window's end is dropped. Set allowed lateness to cover how late data can arrive."},
+ cards:[
+  {h:"When results come out",b:`<ul><li><b>Trigger</b> = <i>when</i> a window emits. Default: once when the <mark>watermark passes the window end</mark> (then again for late data, if allowed).</li><li><b>Event-time</b> (<code>AfterWatermark</code>) · <b>processing-time</b> (<code>AfterProcessingTime</code>, e.g. "early results every minute") · <b>data-driven</b> (<code>AfterCount</code>) · <b>composite</b>.</li></ul>`},
+  {h:"Late data",b:`<ul><li><mark>Allowed lateness</mark>: how long after the watermark you still accept data into a window. Default is 0, so late data is dropped.</li><li><mark>Accumulating</mark>: each firing emits the full updated result. <b>Discarding</b>: each firing emits only the new part.</li></ul><div class="box brain"><div class="l">Exam brain</div>"Dashboards need fast early estimates, then corrected totals when late data arrives" → <b>early processing-time trigger + watermark trigger + allowed lateness, accumulating mode</b>.</div>`}
+ ],
+ keys:["Late data dropped → set allowed lateness","Early results → processing-time trigger","Corrected totals → accumulating mode"]},
+
+{id:"d2-l7",title:"Dataflow in production",mins:6,
+ opener:{q:"You need to stop a streaming Dataflow job to deploy an incompatible change, without losing any data that's already been read. What do you do?",
+  opts:["Cancel the job","Drain the job, then start the new one","Update the job with --update","Delete the Pub/Sub subscription"],ans:1,
+  why:"Drain stops reading new data but finishes processing everything in flight, so nothing is lost. Cancel stops immediately and drops in-flight data. --update only works for compatible changes."},
+ cards:[
+  {h:"Deploying & stopping",b:`<table><tr><th>Action</th><th>Effect</th></tr><tr><td><mark>Update</mark> (<code>--update</code>, same job name)</td><td>Replace code in place, <b>keeps state</b>. Only for compatible changes (rename transforms with a transform mapping).</td></tr><tr><td><mark>Drain</mark></td><td>Stop reading, <b>finish in-flight data</b>, no loss</td></tr><tr><td><mark>Cancel</mark></td><td>Stop now, <b>in-flight data lost</b></td></tr><tr><td>Snapshot</td><td>Save streaming state to restart or roll back</td></tr></table>`},
+  {h:"Scaling & cost",b:`<ul><li><b>Autoscaling</b> with a <b>max workers</b> cap. <b>Streaming Engine</b> moves state off workers. <b>Dataflow Shuffle</b> for batch.</li><li><mark>FlexRS</mark>: cheaper batch for jobs that can wait (delayed start, preemptible capacity).</li><li><mark>Flex Templates</mark>: package a pipeline so others can launch it with parameters, no code needed. Google-provided templates exist (Pub/Sub → BigQuery…).</li><li>Exactly-once processing inside the pipeline. Use the <b>BigQuery Storage Write API</b> sink for exactly-once writes.</li></ul>`},
+  {h:"Troubleshooting",b:`<ul><li><mark>System lag / data freshness rising</mark> = falling behind. Check max workers, hot keys and slow external calls.</li><li><mark>Hot key</mark> (one key with most data) → <code>Combine.perKey().withHotKeyFanout()</code>.</li><li>Per-element API calls are slow → batch them (<code>GroupIntoBatches</code>), or cache / use a side input.</li><li>Workers out of memory → bigger machine type, fix hot keys, smaller side inputs.</li><li><b>Security</b>: a dedicated worker service account (<code>roles/dataflow.worker</code>), <mark>private IPs (<code>--no_use_public_ips</code>) + Private Google Access</mark>, CMEK if required.</li></ul>`}
+ ],
+ keys:["Compatible change → update · incompatible → drain + new job · cancel loses data","Non-developers launch pipelines → Flex Templates","Lag → max workers, hot keys, external calls"]},
+
+{id:"d2-l8",title:"Dataproc done right",mins:5,
+ opener:{q:"Your Dataproc cluster runs nightly Spark jobs for 2 hours but stays up 24/7, and costs are high. What's the Google-recommended pattern?",
+  opts:["Keep the cluster but use smaller machines","Use ephemeral job-scoped clusters with data in Cloud Storage","Move the data to HDFS on persistent disks","Switch all workers to Spot VMs, including primaries"],ans:1,
+  why:"Create a cluster per job, run it, delete it. That only works when data lives in GCS, not on the cluster's HDFS. Spot VMs for primary workers risks losing HDFS and the job itself."},
+ cards:[
+  {h:"Rent a car per trip",b:`<div class="box pic"><div class="l">Picture it</div>Old Hadoop is buying a car and maintaining it forever. Dataproc lets you <b>rent a car per trip</b>, and your luggage stays at home in <b>Cloud Storage</b> instead of in the car's boot (HDFS).</div><ul><li>Clusters start in about 90 s. Billed <b>per second</b> (1-min minimum).</li><li><mark>Use GCS, not HDFS</mark> (<code>gs://</code>): storage separate from compute.</li><li><mark>Ephemeral clusters</mark> + <b>workflow templates</b> (create → run → delete) + <b>scheduled deletion</b> (idle timeout).</li></ul>`},
+  {h:"Cost & customization",b:`<ul><li><mark>Secondary workers as Spot/preemptible VMs</mark> (compute only). Keep primary workers standard.</li><li><b>Autoscaling policies</b> for variable load.</li><li><mark>Initialization actions</mark>: install packages on every node at creation. <b>Cluster properties</b> set config files.</li><li><b>Dataproc Metastore</b>: shared Hive metastore across ephemeral clusters.</li><li><b>Component Gateway</b>: secure UI access (YARN, Spark, Jupyter).</li><li><b>High-availability mode</b>: 3 master nodes.</li><li><mark>Serverless for Apache Spark</mark>: run Spark batches with no cluster.</li></ul>`}
+ ],
+ keys:["Ephemeral clusters + GCS + Spot secondary workers","Install libraries → initialization actions","No cluster at all → Serverless for Apache Spark"]},
+
+{id:"d2-l9",title:"Data Fusion, Dataprep, Dataform, Datastream",mins:4,
+ opener:{q:"You need near-real-time replication of changes from an on-prem MySQL database into BigQuery for analytics, with minimal custom code. Which service?",
+  opts:["Database Migration Service","Datastream","Storage Transfer Service","A nightly mysqldump to GCS"],ans:1,
+  why:"Datastream is serverless change data capture (CDC) straight into BigQuery. DMS migrates databases to Cloud SQL/AlloyDB. STS copies files. Nightly dumps aren't near real time."},
+ cards:[
+  {h:"Tool picker",b:`<table><tr><th>Tool</th><th>Pick when</th></tr><tr><td><mark>Cloud Data Fusion</mark></td><td>Visual no-code ETL, 150+ connectors, hybrid sources. Runs on Dataproc.</td></tr><tr><td>Dataprep</td><td>Analysts visually explore and clean files</td></tr><tr><td><mark>Dataform</mark></td><td>SQL ELT in BigQuery with dependencies, <b>assertions</b> (tests), git</td></tr><tr><td><mark>Datastream</mark></td><td>CDC from MySQL/Postgres/Oracle/SQL Server → BigQuery/GCS</td></tr><tr><td>BigQuery continuous queries</td><td>SQL over streaming data, out to Pub/Sub/Bigtable</td></tr><tr><td>Managed Kafka</td><td>Existing Kafka apps, minimal change</td></tr></table>`},
+  {h:"Simple beats clever",b:`<div class="box brain"><div class="l">Exam brain</div>"Daily CSV lands in GCS, load it into BigQuery" → a plain <b>load job</b> (or BigQuery Data Transfer Service from GCS), not a Dataflow pipeline. Pick Dataflow only when you need real transformation, streaming or complex logic.</div>`}
+ ],
+ keys:["CDC to BigQuery → Datastream","No-code ETL → Data Fusion; SQL ELT with tests → Dataform","Simple file load → BigQuery load job"]},
+
+{id:"d2-l10",title:"Orchestration & CI/CD",mins:5,
+ opener:{q:"Every night you must run a Dataproc job, then load the results into BigQuery, then run quality checks, with retries and an email on failure. What should orchestrate this?",
+  opts:["Cloud Scheduler","Cloud Composer","A cron job on a VM","Pub/Sub"],ans:1,
+  why:"Multi-step dependencies across services with retries, alerting and backfills are what Composer (managed Airflow) is for. Scheduler only fires one thing on a schedule."},
+ cards:[
+  {h:"Three orchestrators",b:`<table><tr><th>Tool</th><th>Best for</th></tr><tr><td><mark>Cloud Composer</mark></td><td>Managed Airflow: complex DAGs, dependencies, retries, backfills, SLAs, sensors. DAGs live in the environment's GCS <code>dags/</code> folder.</td></tr><tr><td><mark>Workflows</mark></td><td>Serverless, cheap chains of API/service calls in YAML</td></tr><tr><td>Cloud Scheduler</td><td>Cron: trigger one thing on a schedule</td></tr><tr><td>Eventarc</td><td>Event-driven (GCS object finalized → Cloud Run / Workflows)</td></tr></table>`},
+  {h:"Event-driven & CI/CD",b:`<ul><li>"Start processing as soon as a file lands" → <b>Eventarc / Cloud Run function</b> launching a Dataflow template, or a Composer GCS sensor.</li><li><b>CI/CD</b>: git → <b>Cloud Build</b> (tests) → images in <b>Artifact Registry</b> → deploy Flex Templates / sync DAGs / Dataform releases → separate <b>dev/test/prod projects</b>. Infra as code with Terraform.</li></ul><div class="box brain"><div class="l">Exam brain</div>Composer = complex DAG · Workflows = light API chain · Scheduler = cron · scheduled query = one SQL statement.</div>`}
+ ],
+ keys:["Multi-step pipelines with retries → Composer","Light serverless API chains → Workflows","File-arrival trigger → Eventarc / Cloud Run function"]}
+];
+
+/* Window Playground tool */
+PDE.tools.windows = {title:"Window Playground",sub:"See fixed, sliding and session windows group the same events",
+ intro:"Twelve clickstream events from two users (A and B) on a 60-minute event-time axis. Pick a window type and an allowed lateness. Events that arrive after the watermark has passed their window are late; past the allowed lateness they're dropped."};
+})();
+
+(function(){
+const Q = (id,topic,q,opts,ans,tip,mock)=>({id,d:"d2",topic,q,opts:opts.map(([t,w])=>({t,w})),ans:Array.isArray(ans)?ans:[ans],tip,mock:!!mock});
+PDE.questions.push(
+Q("d2q01","Choosing an engine","A startup is building a new pipeline that must process both a nightly batch of files and a live event stream with the same business logic. The team is small and doesn't want to manage clusters. Which service?",[
+ ["Dataproc with Spark Streaming","Works, but you manage clusters, which the team wants to avoid."],
+ ["Dataflow (Apache Beam)","Correct. One Beam codebase runs in batch and streaming, and Dataflow is serverless with autoscaling."],
+ ["Cloud Data Fusion","Fine for visual ETL, but complex shared streaming logic is a better fit for Beam code."],
+ ["Compute Engine VMs running custom code","Maximum operational overhead."]],1,
+ "Same logic for batch + streaming, serverless → Dataflow."),
+Q("d2q02","Choosing an engine","An ETL team with no programming experience needs to build pipelines pulling from Salesforce, on-prem Oracle and SFTP into BigQuery, using a visual interface. Which service fits best?",[
+ ["Dataflow with Java SDK","Needs coding skills."],
+ ["Cloud Data Fusion","Correct. Visual, no-code pipelines with a large connector library, including hybrid and on-prem sources."],
+ ["Dataproc","Needs Spark/Hadoop coding and cluster knowledge."],
+ ["BigQuery scheduled queries","Can't pull from Salesforce, Oracle or SFTP by itself."]],1,
+ "No-code + many connectors → Data Fusion."),
+Q("d2q03","Choosing an engine","A partner drops one CSV file per day into a Cloud Storage bucket. You need it in a BigQuery table each morning with no transformation. What's the simplest solution?",[
+ ["A streaming Dataflow pipeline reading from GCS","Overkill for a daily file with no transformation."],
+ ["A Dataproc Spark job triggered by Cloud Scheduler","Cluster management for a simple load."],
+ ["A scheduled BigQuery load job (e.g. via BigQuery Data Transfer Service for Cloud Storage)","Correct. Native batch loads are free and need no pipeline code."],
+ ["Pub/Sub notifications to a BigQuery subscription","GCS notifications contain object metadata, not the file contents."]],2,
+ "Simple file → BigQuery, no transform → load job / DTS."),
+Q("d2q04","Pub/Sub","Your subscriber takes about 90 seconds to process each Pub/Sub message, and you see many duplicate messages. The ack deadline is the default. What's the most likely cause and fix?",[
+ ["Pub/Sub is broken; open a support case","Duplicates are expected behaviour when acks are late."],
+ ["Messages aren't acked before the deadline. Extend the ack deadline (or modify it during processing) and make processing idempotent.","Correct. With the default 10-second deadline, a 90-second job causes redelivery. Extend the deadline and dedupe on a unique ID."],
+ ["Add a second subscription","A second subscription gets its own full copy, which means more processing, not fewer duplicates."],
+ ["Enable message ordering","Ordering doesn't prevent redelivery."]],1,
+ "Duplicates = late acks. Extend the deadline, dedupe on an ID."),
+Q("d2q05","Pub/Sub","Orders for the same customer must be processed in the order they were published, but there are millions of customers and throughput must stay high. What should you do?",[
+ ["Use a single subscriber with one thread","Destroys throughput."],
+ ["Publish with an ordering key = customer_id and enable message ordering on the subscription","Correct. Ordering keys guarantee per-key order while different keys are still processed in parallel."],
+ ["Sort messages by publish time in BigQuery later","Doesn't help real-time processing order."],
+ ["Use one topic per customer","Millions of topics is an anti-pattern."]],1,
+ "Per-entity order → ordering keys."),
+Q("d2q06","Pub/Sub","A small number of malformed messages cause your subscriber to crash and retry endlessly, blocking other messages. What should you configure?",[
+ ["A dead-letter topic with a maximum number of delivery attempts","Correct. After N failed attempts the message is forwarded to the dead-letter topic for later inspection."],
+ ["A longer message retention duration","Keeps the poison messages around longer."],
+ ["Exactly-once delivery","Doesn't help with messages that always fail."],
+ ["A push subscription","The delivery method doesn't solve poison messages."]],0,
+ "Poison messages → dead-letter topic."),
+Q("d2q07","Pub/Sub","You want events from a Pub/Sub topic written directly into a BigQuery table as they arrive. No transformations are needed, and you want the least operational overhead. What should you use?",[
+ ["A Dataflow Pub/Sub-to-BigQuery template","Works, but it runs a pipeline you don't need."],
+ ["A BigQuery subscription on the topic","Correct. Pub/Sub writes straight to BigQuery, with no pipeline to manage."],
+ ["A Cloud Run service that pulls and inserts rows","Custom code to maintain."],
+ ["A Cloud Storage subscription, then load jobs","Two steps and added latency."]],1,
+ "No transform → BigQuery subscription."),
+Q("d2q08","Pub/Sub","A Cloud Run service should receive each Pub/Sub message as an HTTPS request, with no polling code. Which subscription type should you use?",[
+ ["Pull","The subscriber would have to poll."],
+ ["Push","Correct. Pub/Sub POSTs each message to the HTTPS endpoint."],
+ ["BigQuery subscription","Writes to a table, not to your service."],
+ ["Cloud Storage subscription","Writes files, not HTTP requests."]],1,
+ "HTTPS endpoint, no polling → push. High-throughput workers / Dataflow → pull."),
+Q("d2q09","Pub/Sub","The oldest unacked message age on a subscription keeps rising during peak hours. The Dataflow job reading it is pinned at its maximum worker count. What should you do first?",[
+ ["Increase the topic's retention","Hides the symptom, but the backlog still grows."],
+ ["Raise the Dataflow max workers (and check for slow steps or hot keys)","Correct. The consumer can't keep up. Give it capacity and look for bottlenecks."],
+ ["Create another topic","Doesn't speed up consumption."],
+ ["Switch to a push subscription","Doesn't add processing capacity."]],1,
+ "Growing backlog → consumer too slow: scale it or fix bottlenecks."),
+Q("d2q10","Beam","In a Dataflow pipeline you must join a stream of orders with a stream of payments on order_id within the same window. Which transform should you use?",[
+ ["Flatten","Merges PCollections of the same type. It isn't a join."],
+ ["CoGroupByKey","Correct. Groups values from multiple keyed PCollections by key, which is Beam's join."],
+ ["Side input","For a small, mostly static dataset, not for joining two large streams."],
+ ["Partition","Splits one PCollection into several."]],1,
+ "Join two keyed PCollections → CoGroupByKey."),
+Q("d2q11","Beam","About 0.1% of incoming records fail parsing, and today the whole Dataflow job fails when that happens. You need valid data to keep flowing, with bad records kept for later analysis. What should you do?",[
+ ["Wrap parsing in try/catch and silently drop failures","Loses the bad records you need to investigate."],
+ ["Send failed records to a tagged side output written to a dead-letter table or bucket","Correct. The dead-letter pattern keeps the main pipeline healthy and preserves failures."],
+ ["Set max_bad_records in BigQuery","Only applies to load jobs, and it silently drops rows."],
+ ["Increase worker memory","Parsing errors aren't a memory problem."]],1,
+ "Bad records → dead-letter output, not job failure."),
+Q("d2q12","Beam","A pipeline computes total sales per store using GroupByKey followed by a ParDo that sums the values. It's slow and shuffles a lot of data. What change helps most?",[
+ ["Use Combine.perKey (Sum) instead","Correct. Combine pre-aggregates on each worker before the shuffle, which cuts data movement."],
+ ["Use a side input of all sales","Side inputs are for small lookups."],
+ ["Switch to a global window","Doesn't reduce shuffle volume."],
+ ["Add more GroupByKey steps","More shuffles."]],0,
+ "Aggregations → Combine (partial aggregation), not GroupByKey + manual sum."),
+Q("d2q13","Windowing","Operations wants the number of failed logins counted in separate, non-overlapping 5-minute buckets. Which window?",[
+ ["Fixed windows of 5 minutes","Correct. Tumbling, non-overlapping, equal-size windows."],
+ ["Sliding windows of 5 minutes every 1 minute","These overlap, so each event is counted in several windows."],
+ ["Session windows with a 5-minute gap","Closes on inactivity per key, not fixed buckets."],
+ ["Global window","Never closes without a trigger."]],0,
+ "\"Every N minutes\" → fixed."),
+Q("d2q14","Windowing","A trading dashboard shows the average price over the last 30 minutes, updated every minute. Which window?",[
+ ["Fixed 30-minute windows","Only updates every 30 minutes."],
+ ["Sliding windows: 30-minute size, 1-minute period","Correct. Overlapping windows give a moving average."],
+ ["Session windows","Activity-based, not a rolling time range."],
+ ["Global window with a count trigger","No rolling time boundary."]],1,
+ "\"Last N, updated every M\" → sliding."),
+Q("d2q15","Windowing","A streaming app needs to group each user's clicks into visits, where a visit ends after 20 minutes without activity. Which window?",[
+ ["Fixed 20-minute windows","Cuts visits at arbitrary boundaries."],
+ ["Sliding windows of 20 minutes","Overlapping fixed ranges, not activity-based."],
+ ["Session windows with a 20-minute gap duration, keyed by user","Correct. Session windows close after an inactivity gap, per key."],
+ ["Global window","No visit boundaries."]],2,
+ "\"Until inactive for X\" → session windows."),
+Q("d2q16","Event time","Sensor readings are buffered on devices and can reach Pub/Sub up to 2 hours late. Your hourly averages must reflect when readings were taken. Which TWO settings are needed?",[
+ ["Use the reading's own timestamp as the element's event time","Correct. Window on when the reading happened, not when it arrived."],
+ ["Window on processing time","Late readings would land in the wrong hour."],
+ ["Set allowed lateness to at least 2 hours","Correct. Otherwise readings that arrive after the watermark are dropped."],
+ ["Use a global window","No hourly grouping."]],[0,2],
+ "Delayed data → event-time timestamps + allowed lateness."),
+Q("d2q17","Triggers","A dashboard needs a rough count for each 1-hour window every minute while the hour is in progress, then the final accurate count, updated again if late data arrives. Which configuration?",[
+ ["Default trigger, discarding mode","Emits only when the watermark passes, with no early results."],
+ ["Early processing-time trigger every minute + watermark trigger + late firings, accumulating mode","Correct. Early speculative results, an on-time result, late corrections, and each firing shows the full updated count."],
+ ["AfterCount(1) trigger, discarding","Fires per element with partial deltas only, which is noisy and incomplete."],
+ ["Global window with no trigger","Never emits on an unbounded stream."]],1,
+ "Early + on-time + late results with full totals → processing-time early trigger, watermark trigger, accumulating."),
+Q("d2q18","Dataflow ops","You fixed a bug in a streaming Dataflow pipeline. The change is compatible (same transforms, new logic inside a DoFn). You must keep the pipeline's state and not lose data. What do you do?",[
+ ["Cancel the job and start a new one","Cancel loses in-flight data and state."],
+ ["Launch the new code with --update using the same job name","Correct. In-place update keeps state and preserves exactly-once processing."],
+ ["Drain and start a new job","Safe, but it discards accumulated window state, and update is the better fit for compatible changes."],
+ ["Create a new subscription for the new job","Loses unacknowledged history and duplicates processing."]],1,
+ "Compatible change → update. Incompatible → drain + new job."),
+Q("d2q19","Dataflow ops","You must replace a streaming pipeline with a version that changes the windowing strategy in an incompatible way. No data that's already been read may be lost. What should you do?",[
+ ["Cancel the old job, start the new one","In-flight data is lost."],
+ ["Drain the old job, then start the new job on the same subscription","Correct. Drain finishes buffered data, and the new job continues from unacked messages."],
+ ["Use --update","Incompatible changes fail the compatibility check."],
+ ["Delete and recreate the subscription","Unacked messages are lost."]],1,
+ "Incompatible change, no loss → drain."),
+Q("d2q20","Dataflow ops","Business analysts need to launch an existing Dataflow pipeline themselves, choosing input bucket and date parameters, without touching code or build tools. What should you provide?",[
+ ["Grant them Dataflow Admin and share the Java source","They still need build tools and coding skills."],
+ ["A Dataflow Flex Template with runtime parameters","Correct. They launch it from the console, gcloud or the API with parameters, and no code."],
+ ["A Dataproc workflow template","Wrong service for a Beam pipeline."],
+ ["A Cloud Composer environment for each analyst","Heavyweight for this need."]],1,
+ "Launch pipelines without code → (Flex) templates."),
+Q("d2q21","Dataflow ops","A streaming pipeline aggregates events per country. One country produces 70% of the traffic, and one worker is overloaded while the others idle. What should you do?",[
+ ["Increase max workers","The hot key still goes to one worker."],
+ ["Use Combine.perKey with withHotKeyFanout","Correct. Fanout pre-aggregates the hot key across workers before the final combine."],
+ ["Switch to session windows","Doesn't change key distribution."],
+ ["Use a larger Pub/Sub topic","Pub/Sub isn't the bottleneck."]],1,
+ "Hot key → hot-key fanout / better key design."),
+Q("d2q22","Dataflow ops","A Dataflow job calls an external REST API for every element and system lag keeps growing. The API supports batch requests. What should you change?",[
+ ["Add retries","More calls, more lag."],
+ ["Batch elements with GroupIntoBatches and call the batch endpoint","Correct. Far fewer round-trips, so throughput rises."],
+ ["Switch to a global window","Unrelated to call overhead."],
+ ["Move to a push subscription","The source isn't the bottleneck."]],1,
+ "Per-element external calls → batch them / cache / side input."),
+Q("d2q23","Dataflow ops","Security policy forbids public IP addresses on data-processing VMs. Your Dataflow workers still need to reach BigQuery and Cloud Storage. What should you do?",[
+ ["Run Dataflow with --no_use_public_ips on a subnet with Private Google Access enabled","Correct. Workers get only internal IPs and reach Google APIs privately."],
+ ["Use a Cloud NAT and keep public IPs","Still uses public IPs on the workers."],
+ ["Move the pipeline to Compute Engine","Doesn't solve the requirement and adds overhead."],
+ ["Disable the Dataflow API","Breaks the pipeline."]],0,
+ "No public IPs → private IP workers + Private Google Access."),
+Q("d2q24","Dataflow ops","A large weekly batch Dataflow job isn't time-sensitive; it just needs to finish within 6 hours of submission. You want to reduce its cost. What should you use?",[
+ ["Streaming Engine","For streaming jobs."],
+ ["FlexRS (Flexible Resource Scheduling)","Correct. Discounted batch execution with delayed scheduling, built for non-urgent jobs."],
+ ["Bigger machine types","Usually raises cost."],
+ ["Running it as a streaming job","More expensive and unnecessary."]],1,
+ "Non-urgent batch, cheaper → FlexRS."),
+Q("d2q25","Dataproc","Spark jobs on Dataproc read and write data on the cluster's HDFS, so the cluster can never be deleted. You want to cut costs with job-scoped clusters. What must change first?",[
+ ["Store data in Cloud Storage and use gs:// paths","Correct. Separating storage from compute lets you delete clusters without losing data."],
+ ["Use larger persistent disks","Still tied to the cluster."],
+ ["Enable high-availability mode","Improves uptime, not cost."],
+ ["Convert jobs to Hive","Doesn't separate storage."]],0,
+ "Ephemeral clusters require data in GCS, not HDFS."),
+Q("d2q26","Dataproc","You want to lower Dataproc costs for fault-tolerant Spark batch jobs without risking HDFS data loss or job-master failures. What should you do?",[
+ ["Make all primary workers Spot VMs","Losing primaries risks HDFS data and job stability."],
+ ["Add Spot (preemptible) secondary workers for extra compute","Correct. Secondary workers do compute only, so losing them is safe and cheap."],
+ ["Make the master node a Spot VM","Losing the master kills the cluster."],
+ ["Switch to a single-node cluster","Not enough capacity for production jobs."]],1,
+ "Cheaper Dataproc → Spot secondary workers, standard primaries."),
+Q("d2q27","Dataproc","Every Dataproc cluster needs a custom Python library and a config file installed on all nodes when it's created. What's the recommended approach?",[
+ ["SSH into each node after creation","Manual, and lost with every new cluster."],
+ ["Initialization actions stored in Cloud Storage","Correct. Scripts run on every node at creation, so they're repeatable."],
+ ["Cloud Deployment Manager","Not how you customize software on Dataproc nodes."],
+ ["Install the library in the Spark job at runtime on the driver only","Workers wouldn't have it."]],1,
+ "Software on every node → initialization actions (or a custom image)."),
+Q("d2q28","Dataproc","A data science team wants to run PySpark batch jobs but doesn't want to size, start or delete clusters at all. What should they use?",[
+ ["Dataproc with autoscaling","Still a cluster to create and manage."],
+ ["Serverless for Apache Spark","Correct. Submit Spark batches with no cluster management."],
+ ["Dataflow","Runs Beam, not PySpark code as-is."],
+ ["Compute Engine with Spark installed","Maximum overhead."]],1,
+ "Spark with zero cluster management → Serverless for Apache Spark."),
+Q("d2q29","Migration","A company has on-prem Kafka producers and consumers and wants to move to Google Cloud with minimal application changes and no broker management. What should they use?",[
+ ["Pub/Sub","Least ops, but needs client changes from the Kafka API."],
+ ["Google Cloud Managed Service for Apache Kafka","Correct. Real Kafka API compatibility without running brokers yourself."],
+ ["Kafka on Compute Engine","Works, but you manage brokers, which the company wants to avoid."],
+ ["Pub/Sub Lite","Shut down."]],1,
+ "Keep Kafka API, no brokers → Managed Kafka. Open to change → Pub/Sub."),
+Q("d2q30","Ingestion","Analysts want a BigQuery copy of an operational PostgreSQL database that stays within a few minutes of the source, with no custom code. What should you use?",[
+ ["Datastream (CDC) into BigQuery","Correct. Serverless change data capture keeps BigQuery in near real time."],
+ ["Nightly pg_dump to GCS + load","Up to 24 hours stale."],
+ ["Database Migration Service","Migrates into Cloud SQL/AlloyDB, not BigQuery analytics replication."],
+ ["Federated queries on every dashboard refresh","Puts analytical load on the production database."]],0,
+ "Near-real-time DB → BigQuery replication → Datastream."),
+Q("d2q31","Orchestration","A nightly workflow runs a Dataproc job, waits for it, loads the results into BigQuery, runs a Dataform release, and alerts on failure, with retries and the ability to backfill past dates. What should orchestrate it?",[
+ ["Cloud Scheduler","Triggers one action, with no dependencies or backfills."],
+ ["Cloud Composer","Correct. Airflow DAGs handle dependencies, retries, alerting and backfills across services."],
+ ["Pub/Sub","Messaging, not orchestration."],
+ ["A cron job on a VM","Fragile and unmanaged."]],1,
+ "Multi-step DAG + retries + backfill → Composer."),
+Q("d2q32","Orchestration","You need a lightweight, serverless way to call three Google Cloud APIs in sequence (start a BigQuery job, wait, then call a Cloud Run service) a few times a day, at minimal cost. What fits best?",[
+ ["Cloud Composer","Powerful, but a heavyweight always-on environment for a simple chain."],
+ ["Workflows (triggered by Cloud Scheduler)","Correct. Serverless step orchestration of API calls, paid per step."],
+ ["Dataflow","A data-processing engine, not an API orchestrator."],
+ ["Dataproc workflow templates","For Dataproc jobs only."]],1,
+ "Light API chain → Workflows. Complex data DAGs → Composer."),
+Q("d2q33","Orchestration","Processing must start as soon as a new file lands in a Cloud Storage bucket. Files arrive at unpredictable times. What's the most efficient approach?",[
+ ["A Composer DAG that runs every minute to list the bucket","Polling wastes resources and adds delay."],
+ ["An Eventarc trigger on object finalize that invokes a Cloud Run function to launch a Dataflow template","Correct. Event-driven: it runs only when a file arrives."],
+ ["A Dataflow streaming job polling the bucket","Expensive always-on polling for sporadic files."],
+ ["Cloud Scheduler every 5 minutes","Still polling, and still delayed."]],1,
+ "React to file arrival → Eventarc / Cloud Run functions."),
+Q("d2q34","CI/CD","Your team wants Dataflow pipeline changes to be tested automatically and promoted from dev to prod in a repeatable way. What's the recommended approach?",[
+ ["Developers run pipelines from their laptops into prod","Not repeatable or controlled."],
+ ["Cloud Build runs tests and builds a Flex Template image in Artifact Registry, then deploys it to dev and then to prod projects","Correct. CI/CD with the same artifact promoted through separate environments."],
+ ["Edit the running job in the console","Not possible for code, and not repeatable."],
+ ["Store pipeline code in a GCS bucket","No testing or promotion process."]],1,
+ "CI/CD → Cloud Build + Artifact Registry + separate projects per environment."),
+
+/* ---------- mock-only ---------- */
+Q("d2m01","Architecture","A logistics company ingests GPS events from 100,000 trucks. It needs real-time per-truck lookups in under 10 ms for a tracking app and SQL analytics on history. Which architecture fits?",[
+ ["Pub/Sub → Dataflow → Bigtable (serving) and BigQuery (analytics)","Correct. A streaming pipeline with the right sink for each access pattern."],
+ ["Pub/Sub → Cloud SQL","Can't take this write volume, and it's poor for analytics at scale."],
+ ["Cloud Storage → nightly Dataproc → BigQuery","Not real time."],
+ ["Pub/Sub → BigQuery only","No sub-10 ms point lookups."]],0,null,true),
+Q("d2m02","Pub/Sub","A payments service consuming from Pub/Sub must not process the same message twice, and you want Pub/Sub itself to guarantee this within a region. What should you enable?",[
+ ["Message ordering","Ordering doesn't prevent redelivery."],
+ ["Exactly-once delivery on the pull subscription","Correct. Pub/Sub guarantees no redelivery once a message is successfully acked."],
+ ["A dead-letter topic","Handles failures, not duplicates."],
+ ["A push subscription","Push doesn't support exactly-once delivery."]],1,null,true),
+Q("d2m03","Dataflow ops","A streaming Dataflow pipeline writes to BigQuery and occasionally creates duplicate rows after worker restarts. You need exactly-once writes. What should you change?",[
+ ["Use the BigQuery Storage Write API in exactly-once mode for the sink","Correct. It gives exactly-once semantics into BigQuery."],
+ ["Deduplicate with a nightly query only","Duplicates stay visible all day."],
+ ["Increase the number of workers","Doesn't affect duplicates."],
+ ["Switch to batch loads every minute","Adds latency and complexity."]],0,null,true),
+Q("d2m04","Dataproc","A long-running Dataproc cluster serving interactive Spark notebooks must keep working if the master node fails. What should you configure?",[
+ ["High-availability mode with 3 master nodes","Correct. HA mode runs 3 masters so the cluster survives a master failure."],
+ ["More secondary workers","Workers don't replace the master."],
+ ["Scheduled deletion","Deletes the cluster."],
+ ["Spot master nodes","Makes failures more likely."]],0,null,true),
+Q("d2m05","Pub/Sub","Producers sometimes publish messages missing required fields, and downstream consumers crash. You want invalid messages rejected at publish time. What should you use?",[
+ ["A Pub/Sub topic schema (Avro or Protocol Buffers)","Correct. The topic validates messages against the schema when they're published."],
+ ["A dead-letter topic","Catches failures after delivery, not at publish."],
+ ["Exactly-once delivery","Unrelated to validation."],
+ ["Message ordering","Unrelated to validation."]],0,null,true),
+Q("d2m06","Orchestration","Cloud Composer tasks are stuck in \"queued\" for long periods at peak times, although DAGs are correct. What's the most likely fix?",[
+ ["Rewrite the DAGs in Workflows","Doesn't address capacity."],
+ ["Scale the Composer environment (more or larger workers, higher concurrency settings)","Correct. Queued tasks mean there isn't enough worker capacity or concurrency."],
+ ["Delete old DAG runs","Doesn't add capacity."],
+ ["Move DAG files to a different bucket","DAG location isn't the issue."]],1,null,true),
+Q("d2m07","Choosing an engine","A pipeline built in Cloud Data Fusion runs every night. Which service actually executes the pipeline under the hood?",[
+ ["Dataflow","Not Data Fusion's default execution engine."],
+ ["Dataproc (ephemeral clusters by default)","Correct. Data Fusion compiles pipelines to Spark and runs them on Dataproc."],
+ ["BigQuery","It can push some work down, but it isn't the executor."],
+ ["Cloud Run","No."]],1,null,true),
+Q("d2m08","Windowing","A streaming job uses session windows with a 30-minute gap. A user clicks at 10:00, 10:20 and 11:05. How many sessions does this create?",[
+ ["One","The 45-minute gap between 10:20 and 11:05 exceeds the 30-minute gap duration."],
+ ["Two: [10:00–10:20] and [11:05]","Correct. The first two clicks are within 30 minutes. The third starts a new session."],
+ ["Three","10:00 and 10:20 are only 20 minutes apart, so they merge."],
+ ["It depends on the trigger","Triggers control when results are emitted, not how sessions are formed."]],1,null,true),
+Q("d2m09","Windowing","Your team notices that events arriving more than a few seconds late never appear in Dataflow window results. Nobody configured lateness. Why?",[
+ ["Pub/Sub drops late messages","It doesn't."],
+ ["The default allowed lateness is zero, so data behind the watermark is dropped","Correct. Configure allowed lateness to keep late data."],
+ ["Fixed windows can't accept late data","Any window type can accept late data if lateness is allowed."],
+ ["Autoscaling discards slow events","No."]],1,null,true),
+Q("d2m10","Dataflow ops","A Dataflow streaming job's data freshness metric has degraded steadily over an hour while input volume is flat. CPU is low on all workers. What's the most likely cause?",[
+ ["Not enough workers","CPU is low, so it isn't compute starvation."],
+ ["A slow external dependency (e.g. per-element API or database calls) blocking processing","Correct. Low CPU with growing lag points to waiting on I/O."],
+ ["The Pub/Sub topic is too small","Topics don't have a size."],
+ ["The windows are too short","Doesn't cause steadily growing lag at flat input."]],1,null,true),
+Q("d2m11","Ingestion","An on-prem system produces 2 TB of log files per day. You need them in Cloud Storage daily with a managed, scheduled, resumable transfer over your 10 Gbps Interconnect. What should you use?",[
+ ["Storage Transfer Service with on-prem transfer agents","Correct. Managed, scheduled, resumable transfers from on-prem file systems."],
+ ["Transfer Appliance every day","The appliance is for offline bulk transfers, not daily ones."],
+ ["Manual gcloud storage cp from an admin's laptop","Not managed or reliable."],
+ ["Datastream","For database CDC, not files."]],0,null,true),
+Q("d2m12","Beam","A Beam pipeline reads clickstream events and must enrich them with product data from a 200 GB table that changes constantly. A side input is too large. What's a better approach?",[
+ ["Keep using a side input on bigger workers","200 GB is far too large for a side input."],
+ ["Look up product data from a low-latency store (e.g. Bigtable) in batches with caching, or key both streams and CoGroupByKey","Correct. Large, changing reference data needs keyed lookups or a join, not broadcasting."],
+ ["Load the table into every worker's memory at startup","Same problem as a side input."],
+ ["Skip enrichment","Doesn't meet the requirement."]],1,null,true)
+);
+
+PDE.flash.push(
+ {id:"f2-01",d:"d2",f:"Existing Spark/Hadoop, minimal changes",b:"Dataproc"},
+ {id:"f2-02",d:"d2",f:"New batch + streaming pipeline, serverless",b:"Dataflow (Apache Beam)"},
+ {id:"f2-03",d:"d2",f:"No-code ETL with many connectors",b:"Cloud Data Fusion"},
+ {id:"f2-04",d:"d2",f:"Lots of duplicate Pub/Sub messages",b:"Late acks",x:"Extend ack deadline; dedupe on an ID."},
+ {id:"f2-05",d:"d2",f:"Two apps both need every message",b:"Two subscriptions"},
+ {id:"f2-06",d:"d2",f:"Per-customer message order",b:"Ordering keys"},
+ {id:"f2-07",d:"d2",f:"Reprocess messages after a bad deploy",b:"Seek to snapshot / timestamp"},
+ {id:"f2-08",d:"d2",f:"Poison messages blocking a subscription",b:"Dead-letter topic"},
+ {id:"f2-09",d:"d2",f:"Pub/Sub → BigQuery with no transformation",b:"BigQuery subscription"},
+ {id:"f2-10",d:"d2",f:"Enrich each event with a small lookup table",b:"Side input"},
+ {id:"f2-11",d:"d2",f:"Join two keyed PCollections",b:"CoGroupByKey"},
+ {id:"f2-12",d:"d2",f:"Bad records shouldn't fail the job",b:"Dead-letter (tagged) output"},
+ {id:"f2-13",d:"d2",f:"Count every 5 minutes, no overlap",b:"Fixed windows"},
+ {id:"f2-14",d:"d2",f:"Moving average: last hour, every minute",b:"Sliding windows"},
+ {id:"f2-15",d:"d2",f:"Group clicks until the user is idle",b:"Session windows"},
+ {id:"f2-16",d:"d2",f:"Late data silently missing",b:"Allowed lateness is 0 by default",x:"Set allowed lateness."},
+ {id:"f2-17",d:"d2",f:"Early estimates + corrected totals",b:"Early processing-time trigger + watermark trigger, accumulating"},
+ {id:"f2-18",d:"d2",f:"Compatible code change to a streaming job",b:"--update (same job name)"},
+ {id:"f2-19",d:"d2",f:"Stop a streaming job without losing data",b:"Drain",x:"Cancel loses in-flight data."},
+ {id:"f2-20",d:"d2",f:"Non-developers launch a pipeline",b:"Flex Template"},
+ {id:"f2-21",d:"d2",f:"One key overloads a worker",b:"Hot key → withHotKeyFanout"},
+ {id:"f2-22",d:"d2",f:"Cheaper non-urgent Dataflow batch",b:"FlexRS"},
+ {id:"f2-23",d:"d2",f:"Dataproc cost cutting",b:"Ephemeral clusters + GCS + Spot secondary workers"},
+ {id:"f2-24",d:"d2",f:"Install a library on every Dataproc node",b:"Initialization actions"},
+ {id:"f2-25",d:"d2",f:"Spark with no cluster to manage",b:"Serverless for Apache Spark"},
+ {id:"f2-26",d:"d2",f:"Near-real-time DB changes → BigQuery",b:"Datastream (CDC)"},
+ {id:"f2-27",d:"d2",f:"Kafka apps, minimal change, no brokers",b:"Managed Service for Apache Kafka"},
+ {id:"f2-28",d:"d2",f:"Complex DAG with retries & backfills",b:"Cloud Composer"},
+ {id:"f2-29",d:"d2",f:"Light serverless chain of API calls",b:"Workflows"},
+ {id:"f2-30",d:"d2",f:"Start processing when a file lands in GCS",b:"Eventarc → Cloud Run function"}
+);
+PDE.mocks.splice(1,0,{id:"mini-d2",title:"Mini mock · Ingesting & processing",n:10,min:15,domains:["d2"],lockText:"Needs 10 mock questions"});
+})();
+
 /* PDE Academy — single-file offline app. Data in window.PDE (domains, lessons, questions, flashcards, tools). */
 (function(){
 "use strict";
@@ -817,6 +1237,53 @@ function vTool(t){
   const tool=D.tools[t]; if(!tool) return go("practice");
   if(t==="picker") return vPicker(tool);
   if(t==="transfer") return vTransfer(tool);
+  if(t==="windows") return vWindows(tool);
+}
+/* Window Playground */
+let WP={type:"fixed",late:0};
+const EV=[["A",2,3],["A",7,8],["B",4,5],["A",11,12],["B",14,15],["A",24,25],["B",26,27],["B",31,33],["A",38,39],["A",41,58],["B",48,49],["B",52,70]];
+function windowsFor(){
+  const W=[];
+  if(WP.type==="fixed"){for(let s=0;s<60;s+=10)W.push({s,e:s+10,k:null});}
+  else if(WP.type==="sliding"){for(let s=-10;s<60;s+=10)W.push({s:Math.max(s,0),e:Math.min(s+20,60),rs:s,k:null});}
+  else{ ["A","B"].forEach(k=>{const ts=EV.filter(x=>x[0]===k).map(x=>x[1]).sort((a,b)=>a-b);let cur=null;
+      ts.forEach(t=>{if(cur&&t<=cur.last+8){cur.last=t;}else{cur={s:t,last:t,k};W.push(cur);}});});
+    W.forEach(w=>{w.e=w.last+8;}); }
+  return W;
+}
+function vWindows(tool){
+  const W=windowsFor(), L=WP.late, X=t=>16+t*5.4;
+  const inW=(ev,w)=>(w.k===null||w.k===ev[0])&&ev[1]>=(w.rs!==undefined?w.rs:w.s)&&ev[1]<(w.rs!==undefined?w.rs+20:w.e);
+  const status=(ev,w)=>{const wm=ev[2]-2; if(wm<=w.e)return "ok"; if(wm<=w.e+L)return "late"; return "drop";};
+  W.forEach(w=>{w.items=EV.filter(ev=>inW(ev,w)).map(ev=>({ev,st:status(ev,w)}));});
+  const evStatus=ev=>{const s=W.filter(w=>inW(ev,w)).map(w=>status(ev,w)); if(s.every(x=>x==="drop"))return "drop"; if(s.some(x=>x!=="ok"))return "late"; return "ok";};
+  const rows = WP.type==="sliding"?W.length:(WP.type==="session"?2:1);
+  const H=110+rows*16;
+  let svg=`<svg viewBox="0 0 360 ${H}" width="100%" style="display:block">`;
+  for(let t=0;t<=60;t+=10) svg+=`<line x1="${X(t)}" y1="18" x2="${X(t)}" y2="${H-8}" stroke="var(--line)"/><text x="${X(t)}" y="12" font-size="9" text-anchor="middle" fill="var(--muted)">${t}m</text>`;
+  W.forEach((w,i)=>{const y=WP.type==="sliding"?92+i*16:(WP.type==="session"?(w.k==="A"?92:108):92);
+    const col=w.k==="B"?"#db2777":(w.k==="A"?"#4f46e5":"#16a34a");
+    svg+=`<rect x="${X(Math.max(w.rs!==undefined?w.rs:w.s,0))}" y="${y}" width="${Math.max(X(Math.min(w.rs!==undefined?w.rs+20:w.e,60))-X(Math.max(w.rs!==undefined?w.rs:w.s,0)),3)}" height="12" rx="4" fill="${col}" opacity=".22" stroke="${col}"/>`;});
+  [["A",38],["B",66]].forEach(([k,y])=>{svg+=`<text x="2" y="${y+4}" font-size="10" font-weight="700" fill="var(--muted)">${k}</text>`;
+    EV.filter(e=>e[0]===k).forEach(ev=>{const st=evStatus(ev),x=X(ev[1]),c=k==="A"?"#4f46e5":"#db2777";
+      if(st==="drop") svg+=`<text x="${x}" y="${y+5}" font-size="15" font-weight="800" text-anchor="middle" fill="#dc2626">×</text>`;
+      else svg+=`<circle cx="${x}" cy="${y}" r="6" fill="${c}" ${st==="late"?'stroke="#f59e0b" stroke-width="3"':''}/>`;
+      if(ev[2]-ev[1]>3) svg+=`<text x="${x}" y="${y-10}" font-size="8" text-anchor="middle" fill="#b45309">+${ev[2]-ev[1]}m</text>`;});});
+  svg+=`</svg>`;
+  const btn=(k,t)=>`<button class="btn ${WP.type===k?"":"ghost"}" style="flex:1;padding:10px 6px;font-size:13px" onclick="PDEapp.wp('type','${k}')">${t}</button>`;
+  const lb=(v)=>`<button class="btn ${WP.late===v?"":"ghost"}" style="flex:1;padding:8px 4px;font-size:13px" onclick="PDEapp.wp('late',${v})">${v} min</button>`;
+  const desc={fixed:"<b>Fixed 10-min windows</b>: equal, non-overlapping buckets. Each event belongs to exactly one window.",sliding:"<b>Sliding windows</b>: 20-min size, starting every 10 min. Windows overlap, so each event lands in two windows (moving totals).",session:"<b>Session windows</b> with an 8-min gap, per user. A window closes once a user is quiet for 8 minutes, so each user gets their own windows."}[WP.type];
+  render(`${top(tool.title,"practice")}<p class="muted" style="font-size:14px">${tool.intro}</p>
+  <div class="row" style="margin-bottom:8px">${btn("fixed","Fixed")}${btn("sliding","Sliding")}${btn("session","Session")}</div>
+  <div class="card" style="padding:10px">${svg}
+  <small class="muted">● on time · <span style="color:#b45309">◯ late but accepted</span> · <span style="color:#dc2626">× dropped</span> · <span style="color:#b45309">+Nm</span> = arrived N min after it happened</small></div>
+  <div class="card"><b>Allowed lateness</b><div class="row" style="margin-top:8px">${lb(0)}${lb(5)}${lb(15)}${lb(30)}</div>
+  <p class="muted" style="font-size:13px;margin-bottom:0">The watermark here trails arrival time by 2 minutes. Try 0 min (the default): the delayed events get dropped. Raise it and watch them come back.</p></div>
+  <div class="box pic"><div class="l">What you're seeing</div>${desc}</div>
+  <div class="card"><b>Window results</b><table><tr><th>Window</th><th>Events counted</th><th>Dropped</th></tr>
+  ${W.map(w=>{const ok=w.items.filter(i=>i.st!=="drop").length,dr=w.items.filter(i=>i.st==="drop").length;const a=w.rs!==undefined?w.rs:w.s,b=w.rs!==undefined?w.rs+20:w.e;
+    return `<tr><td>${w.k?w.k+" ":""}${a}–${b}m</td><td>${ok}${w.items.some(i=>i.st==="late")?` <span style="color:#b45309">(incl. late)</span>`:""}</td><td style="color:${dr?"#dc2626":"inherit"}">${dr}</td></tr>`}).join("")}</table></div>
+  <div class="box brain"><div class="l">Exam brain</div>"Every N minutes" → fixed · "last N, updated every M" → sliding · "until the user goes idle" → session · "late data is missing" → raise allowed lateness.</div>`,"practice");
 }
 function vPicker(tool){
   if(!PK) PK={node:"start",path:[]};
@@ -967,6 +1434,7 @@ window.PDEapp={
   pk(i){const tool=D.tools.picker;const n=tool.nodes[PK.node];PK.path.push(n.q+" → "+n.opts[i][0]);PK.node=n.opts[i][1];vPicker(tool);},
   pkReset(){PK=null;vPicker(D.tools.picker);},
   tr(k,v){TR[k]=+v;vTransfer(D.tools.transfer);},
+  wp(k,v){WP[k]=v;vWindows(D.tools.windows);},
   mockStart, mpick(i){const q=qById(M.list[M.i]);let s=M.ans[q.id]||[];if(q.ans.length>1){s=s.includes(i)?s.filter(x=>x!==i):(s.length<q.ans.length?[...s,i]:s);}else s=[i];M.ans[q.id]=s;try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}vMock();},
   mgo(i){M.i=i;vMock();}, mgrid(){vMock(true);},
   mflag(){const id=M.list[M.i];M.flag[id]=!M.flag[id];vMock();},
