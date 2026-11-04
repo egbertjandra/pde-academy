@@ -121,10 +121,18 @@ textarea,input[type=date]{width:100%;border:1px solid var(--line);border-radius:
 textarea{min-height:110px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:#171a26;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:30}
 
+.optrow{display:flex;gap:6px;align-items:stretch}
+.optrow .opt{flex:1;min-width:0}
+.xbtn{flex:none;width:36px;margin:8px 0;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--muted);font:700 14px system-ui;cursor:pointer}
+.xbtn.on{background:var(--soft);color:var(--bad);border-color:var(--bad)}
+.opt.struck{opacity:.42}
+.opt.struck>span:last-child{text-decoration:line-through}
+.opt{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
 </head><body><div id="app"></div><script>window.PDE_PDF=true</script>
 <script>window.PDE = {
-version: "2.2",
+version: "2.3",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -4496,11 +4504,21 @@ function vLesson(id){
   </div>`,"learn");
 }
 
+/* strike-out: hint + long-press */
+function strikeHint(){return (S.hintN||0)<6?`<p class="muted" style="font-size:13px;margin:-4px 0 4px">💡 ${T("Tip: long-press or tap ✕ to cross out an option","Tip: tekan lama atau ketuk ✕ untuk mencoret pilihan")}</p>`:"";}
+const LP={t:null,fired:false};
+function lpStart(e){const b=e.target.closest&&e.target.closest("[data-lp]");if(!b||b.disabled)return;LP.fired=false;clearTimeout(LP.t);
+  LP.t=setTimeout(()=>{LP.fired=true;if(navigator.vibrate)try{navigator.vibrate(15);}catch(_){}PDEapp.strike(b.dataset.lp,+b.dataset.i);},450);}
+function lpEnd(){clearTimeout(LP.t);}
+document.addEventListener("touchstart",lpStart,{passive:true});document.addEventListener("mousedown",lpStart);
+["touchend","touchmove","touchcancel","mouseup","mouseleave"].forEach(ev=>document.addEventListener(ev,lpEnd,{passive:true}));
+document.addEventListener("contextmenu",e=>{if(e.target.closest&&e.target.closest("[data-lp]"))e.preventDefault();});
+
 /* quiz engine (practice mode: instant feedback) */
 let Q=null;
 function startQuiz(list,title,back,domId){
   if(!list.length){toast(T("Nothing to practise here yet","Belum ada soal di sini"));return;}
-  Q={list:shuffle(list).map(q=>q.id),i:0,sel:[],done:false,score:0,title,back,wrong:[],dom:domId||null};
+  Q={list:shuffle(list).map(q=>q.id),i:0,sel:[],done:false,score:0,title,back,wrong:[],dom:domId||null,strike:{}};
   vQuiz();
 }
 function vQuiz(){
@@ -4510,12 +4528,15 @@ function vQuiz(){
   const opts=q.opts.map((o,i)=>{
     let cls=Q.sel.includes(i)?"sel":"";
     if(Q.done){cls=q.ans.includes(i)?"ok":(Q.sel.includes(i)?"no":"");}
-    return `<button class="opt ${cls}" ${Q.done?"disabled":""} onclick="PDEapp.pick(${i})"><span class="k">${L[i]}</span><span>${o.t}${Q.done?`<span class="why">${optW(q,i)}</span>`:""}</span></button>`;}).join("");
+    const st=!Q.done&&Q.strike[i];
+    const b=`<button class="opt ${cls} ${st?"struck":""}" ${Q.done?"disabled":""} data-lp="q" data-i="${i}" onclick="PDEapp.pick(${i})"><span class="k">${L[i]}</span><span>${o.t}${Q.done?`<span class="why">${optW(q,i)}</span>`:""}</span></button>`;
+    return Q.done?b:`<div class="optrow">${b}<button class="xbtn ${st?"on":""}" aria-label="cross out" onclick="PDEapp.strike('q',${i})">✕</button></div>`;}).join("");
   const correct = Q.done && same(Q.sel,q.ans);
   render(`${top(Q.title,Q.back)}
   <div class="qmeta"><span>${T("Question","Soal")} ${Q.i+1} ${T("of","dari")} ${Q.list.length}</span><span class="pill" style="background:${d.color};color:#fff">${q.topic}</span></div>
   <div class="bar" style="margin-bottom:14px"><i style="width:${Q.i/Q.list.length*100}%"></i></div>
   <div class="qstem">${q.q}</div>${multi?`<p class="muted" style="margin-top:-6px"><b>Choose ${q.ans.length}.</b></p>`:""}
+  ${!Q.done?strikeHint():""}
   ${opts}
   ${Q.done?`<div class="verdict ${correct?"ok":"no"}">${correct?T("Correct!","Benar!"):T("Not this time.","Belum tepat.")}</div>${qTip(q)?`<div class="box brain"><div class="l">Exam brain</div>${qTip(q)}</div>`:""}`:""}
   <div class="sticky">${Q.done?`<button class="btn block" onclick="PDEapp.next()">${Q.i+1===Q.list.length?T("See results","Lihat hasil"):T("Next question","Soal berikutnya")}</button>`:
@@ -4707,7 +4728,8 @@ function vMock(showGrid){
   render(`<div class="top"><div class="t">${M.title}</div><span id="timer" class="timer">--:--</span></div>
   <div class="qmeta"><span>${T("Question","Soal")} ${M.i+1} ${T("of","dari")} ${M.list.length} · ${answered} ${T("answered","dijawab")}</span><button class="flag ${M.flag[q.id]?"on":""}" onclick="PDEapp.mflag()">${M.flag[q.id]?"⚑ "+T("Flagged","Ditandai"):"⚐ "+T("Flag","Tandai")}</button></div>
   <div class="qstem">${q.q}</div>${multi?`<p class="muted" style="margin-top:-6px"><b>Choose ${q.ans.length}.</b></p>`:""}
-  ${q.opts.map((o,i)=>`<button class="opt ${sel.includes(i)?"sel":""}" onclick="PDEapp.mpick(${i})"><span class="k">${L[i]}</span><span>${o.t}</span></button>`).join("")}
+  ${strikeHint()}
+  ${q.opts.map((o,i)=>{const st=((M.strike||{})[q.id]||[]).includes(i);return `<div class="optrow"><button class="opt ${sel.includes(i)?"sel":""} ${st?"struck":""}" data-lp="m" data-i="${i}" onclick="PDEapp.mpick(${i})"><span class="k">${L[i]}</span><span>${o.t}</span></button><button class="xbtn ${st?"on":""}" aria-label="cross out" onclick="PDEapp.strike('m',${i})">✕</button></div>`}).join("")}
   <div class="row" style="margin-top:12px"><button class="btn ghost" style="flex:1" ${M.i===0?"disabled":""} onclick="PDEapp.mgo(${M.i-1})">‹ Prev</button><button class="btn ghost" style="flex:1" onclick="PDEapp.mgrid()">${T("All","Semua")}</button><button class="btn" style="flex:1" ${M.i===M.list.length-1?"disabled":""} onclick="PDEapp.mgo(${M.i+1})">Next ›</button></div>
   ${showGrid?`<div class="card"><b>${T("Jump to question","Lompat ke soal")}</b><div class="navgrid">${M.list.map((id,i)=>`<button class="${(M.ans[id]||[]).length?"ans":""} ${M.flag[id]?"fl":""} ${i===M.i?"cur":""}" onclick="PDEapp.mgo(${i})">${i+1}</button>`).join("")}</div><small class="muted">${T("Grey = answered · yellow = flagged","Abu-abu = dijawab · kuning = ditandai")}</small></div>`:""}
   <button class="btn block ${answered===M.list.length?"good":"ghost"}" style="margin-top:14px" onclick="PDEapp.msubmitAsk()">${T("Submit exam","Submit ujian")}</button>`,"practice");
@@ -4966,14 +4988,17 @@ window.PDEapp={
     m.querySelector("#s").onclick=()=>{const v=m.querySelector("#ed").value;const P=buildPlan(v);if(!P){toast(T("Pick a date after today","Pilih tanggal setelah hari ini"));return;}S.exam=v;S.plan=P;save();m.remove();toast(T("Plan created: ","Jadwal dibuat: ")+P.days.length+T(" days"," hari"));location.hash="home";route();};},
   planClear(){S.plan=null;save();toast(T("Plan deleted","Jadwal dihapus"));go("home");},
   tick(k){S.manual[k]=!S.manual[k];save();route();},
+  strike(mode,i){if(mode==="q"){if(Q.done)return;Q.strike[i]=!Q.strike[i];if(Q.strike[i])Q.sel=Q.sel.filter(x=>x!==i);vQuiz();}
+    else{const q=qById(M.list[M.i]);M.strike=M.strike||{};let a=M.strike[q.id]||[];a=a.includes(i)?a.filter(x=>x!==i):[...a,i];M.strike[q.id]=a;
+      if(a.includes(i)&&M.ans[q.id])M.ans[q.id]=M.ans[q.id].filter(x=>x!==i);try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}vMock();}},
   rl(){RL=null;},
   reroll(){RL=pickRandomLesson();vRandom();},
   open(i){LS.opened=i;vLesson(LS.id);},
   lstep(n){LS.step+=n;vLesson(LS.id);},
   ldone(id,d){S.lessons[id]=true;touch();toast(T("Lesson complete ✓","Pelajaran selesai ✓"));LS=null;go("d-"+d);},
-  pick(i){const q=qById(Q.list[Q.i]);if(Q.done)return;if(q.ans.length>1){Q.sel=Q.sel.includes(i)?Q.sel.filter(x=>x!==i):(Q.sel.length<q.ans.length?[...Q.sel,i]:Q.sel);}else Q.sel=[i];vQuiz();},
-  check(){const q=qById(Q.list[Q.i]);Q.done=true;const c=same(Q.sel,q.ans);if(c)Q.score++;else Q.wrong.push(q.id);record(q,c);vQuiz();},
-  next(){Q.i++;Q.sel=[];Q.done=false;vQuiz();},
+  pick(i){if(LP.fired){LP.fired=false;return;}const q=qById(Q.list[Q.i]);if(Q.done||Q.strike[i])return;if(q.ans.length>1){Q.sel=Q.sel.includes(i)?Q.sel.filter(x=>x!==i):(Q.sel.length<q.ans.length?[...Q.sel,i]:Q.sel);}else Q.sel=[i];vQuiz();},
+  check(){const q=qById(Q.list[Q.i]);Q.done=true;S.hintN=(S.hintN||0)+1;const c=same(Q.sel,q.ans);if(c)Q.score++;else Q.wrong.push(q.id);record(q,c);vQuiz();},
+  next(){Q.i++;Q.sel=[];Q.done=false;Q.strike={};vQuiz();},
   retryWrong(){startQuiz(Q.wrong.map(qById),Q.title+" · retry",Q.back);},
   retryAll(){startQuiz(Object.keys(S.wrong).map(qById).filter(Boolean),"Mistakes retry","notebook");},
   flip(){F.flip=!F.flip;vFlash();},
@@ -4984,7 +5009,7 @@ window.PDEapp={
   tr(k,v){TR[k]=+v;vTransfer();},
   wp(k,v){WP[k]=v;vWindows();},
   gread(g,i,next){S.read[g+"-"+i]=true;touch();if(next)location.hash="gs-"+g+"-"+(i+1);else{toast(T("All chapters done ✓","Semua bab selesai ✓"));location.hash="guide-"+g;}},
-  mockStart, mpick(i){const q=qById(M.list[M.i]);let s=M.ans[q.id]||[];if(q.ans.length>1){s=s.includes(i)?s.filter(x=>x!==i):(s.length<q.ans.length?[...s,i]:s);}else s=[i];M.ans[q.id]=s;try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}vMock();},
+  mockStart, mpick(i){if(LP.fired){LP.fired=false;return;}const q=qById(M.list[M.i]);if(((M.strike||{})[q.id]||[]).includes(i))return;let s=M.ans[q.id]||[];if(q.ans.length>1){s=s.includes(i)?s.filter(x=>x!==i):(s.length<q.ans.length?[...s,i]:s);}else s=[i];M.ans[q.id]=s;try{sessionStorage.setItem(KEY+"-mock",JSON.stringify(M));}catch(e){}vMock();},
   mgo(i){M.i=i;vMock();}, mgrid(){vMock(true);},
   mflag(){const id=M.list[M.i];M.flag[id]=!M.flag[id];vMock();},
   msubmitAsk(){const un=M.list.filter(id=>!(M.ans[id]||[]).length).length;const fl=Object.values(M.flag).filter(Boolean).length;
