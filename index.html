@@ -133,11 +133,13 @@ table.duel{font-size:13px;table-layout:fixed}
 table.duel th{text-transform:none;font-size:13px;letter-spacing:0;text-align:left;padding:6px 5px}
 table.duel td{padding:5px 5px 8px;border-bottom:none;overflow-wrap:anywhere;word-break:break-word}
 table.duel td.dl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;padding-bottom:2px}
+.gl{text-decoration:underline dotted;text-decoration-color:var(--accent);text-underline-offset:3px;text-decoration-thickness:1.5px;cursor:help}
+.flag.glc.on{background:var(--accent);color:#fff}
 
 main{padding-top:calc(16px + env(safe-area-inset-top))}</style>
 </head><body><div id="app"></div><script>window.PDE_PDF=true</script>
 <script>window.PDE = {
-version: "2.6",
+version: "2.7",
 order: ["d3","d2","d1","d4","d5"],
 domains: [
  {id:"d1",n:1,w:22,color:"#4f46e5",short:"Designing",name:"Designing data processing systems",ready:false,lessons:[],tools:[],
@@ -4699,6 +4701,823 @@ CQ("csn5","d5","streamnusa","Troubleshooting","During evening peaks, the Dataflo
  "Lag + low CPU → slow external calls; batch/cache them.","Lag + CPU rendah → pemanggilan eksternal yang lambat; batch atau cache.");
 })();
 
+(function(){
+PDE.glossary = PDE.glossary || [];
+/* g(id, term, aliases, full, cat, [enDef, enAnalogy, enExam], [idDef, idAnalogy, idExam]) */
+const g=(id,term,aliases,full,cat,en,idv)=>PDE.glossary.push({id,term,aliases,full,cat,txt:{en:{def:en[0],analogy:en[1],exam:en[2]},id:{def:idv[0],analogy:idv[1],exam:idv[2]}}});
+
+/* ---------- General computing ---------- */
+g("api","API",["API","APIs"],"Application Programming Interface","General",
+ ["A defined way for one program to ask another program to do something or give back data, usually over HTTP.","A restaurant menu: you don't walk into the kitchen, you order from the menu and get food back.","Most GCP services are used through APIs, e.g. the Sensitive Data Protection (DLP) API or the BigQuery Storage Write API."],
+ ["Cara resmi bagi satu program untuk meminta program lain melakukan sesuatu atau mengembalikan data, biasanya lewat HTTP.","Seperti menu restoran: kamu tidak masuk ke dapur, cukup pesan dari menu lalu makanannya diantar.","Hampir semua layanan GCP dipakai lewat API, misalnya DLP API atau BigQuery Storage Write API."]);
+g("sdk","SDK",["SDK","SDKs"],"Software Development Kit","General",
+ ["A library plus tools that make an API easy to use from a specific language (Python, Java…).","A ready-made toolbox instead of forging your own screwdriver.","Beam SDK for Java/Python, Firestore mobile SDKs (offline sync)."],
+ ["Library dan tool yang memudahkan pemakaian sebuah API dari bahasa pemrograman tertentu (Python, Java…).","Kotak perkakas siap pakai, jadi kamu tidak perlu menempa obeng sendiri.","Beam SDK untuk Java/Python, SDK mobile Firestore (sinkronisasi offline)."]);
+g("http","HTTP / HTTPS",["HTTPS","HTTP"],"HyperText Transfer Protocol (Secure)","Network",
+ ["The protocol web browsers and APIs use to send requests and responses. HTTPS is the encrypted version.","The postal format for letters between programs; HTTPS puts the letter in a sealed envelope.","Pub/Sub push subscriptions POST messages to an HTTPS endpoint (e.g. Cloud Run)."],
+ ["Protokol yang dipakai browser dan API untuk mengirim request dan response. HTTPS adalah versi terenkripsinya.","Format surat-menyurat antar program; HTTPS memasukkan suratnya ke amplop tersegel.","Push subscription Pub/Sub mengirim pesan (POST) ke endpoint HTTPS, misalnya Cloud Run."]);
+g("json","JSON",["JSON"],"JavaScript Object Notation","General",
+ ["A text format for structured data using key–value pairs and lists.","A labelled form: \"name\": \"Budi\", \"age\": 25.","Common input format for BigQuery loads, but slower than Avro/Parquet."],
+ ["Format teks untuk data terstruktur berupa pasangan key–value dan list.","Seperti formulir berlabel: \"nama\": \"Budi\", \"umur\": 25.","Format input umum untuk load BigQuery, tapi lebih lambat dari Avro/Parquet."]);
+g("csv","CSV",["CSV"],"Comma-Separated Values","General",
+ ["A plain text table where each line is a row and commas separate columns.","A spreadsheet saved as plain text.","Simple but slow to load, no schema, and gzipped CSV can't be read in parallel."],
+ ["Tabel berupa teks biasa: tiap baris = satu row, kolomnya dipisah koma.","Spreadsheet yang disimpan sebagai teks biasa.","Sederhana tapi lambat di-load, tidak punya schema, dan CSV yang di-gzip tidak bisa dibaca paralel."]);
+g("yaml","YAML",["YAML"],"YAML Ain't Markup Language","General",
+ ["A human-friendly text format for configuration, based on indentation.","A neatly indented to-do list a computer can read.","Workflows definitions are written in YAML."],
+ ["Format teks yang mudah dibaca manusia untuk konfigurasi, berbasis indentasi.","Daftar tugas rapi berindentasi yang bisa dibaca komputer.","Definisi Workflows ditulis dalam YAML."]);
+g("url","URL",["URL","URLs"],"Uniform Resource Locator","General",
+ ["A web address, like https://example.com/file.","A house address on the internet.","Signed URLs give temporary access to one Cloud Storage object."],
+ ["Alamat web, misalnya https://example.com/file.","Alamat rumah di internet.","Signed URL memberi akses sementara ke satu objek Cloud Storage."]);
+g("cpu","CPU",["CPU"],"Central Processing Unit","General",
+ ["The main processor that runs calculations in a computer or VM.","The brain doing the arithmetic.","\"One Bigtable node at 100% CPU\" usually means a hotspot."],
+ ["Prosesor utama yang menjalankan perhitungan di komputer atau VM.","Otak yang mengerjakan hitungan.","\"Satu node Bigtable CPU 100%\" biasanya tanda hotspot."]);
+g("ram","RAM / memory",["RAM","in-memory"],"Random Access Memory","General",
+ ["Fast, temporary working memory. Much faster than disk, but lost when the machine stops.","Your desk: fast to grab things from, but cleared every night.","In-memory services: Memorystore, BI Engine."],
+ ["Memori kerja yang cepat tapi sementara. Jauh lebih cepat dari disk, tapi hilang saat mesin mati.","Meja kerjamu: cepat mengambil barang, tapi dibersihkan setiap malam.","Layanan in-memory: Memorystore, BI Engine."]);
+g("gpu","GPU / TPU",["GPU/TPU","GPU","GPUs","TPU","TPUs"],"Graphics / Tensor Processing Unit","ML & AI",
+ ["Specialised chips that do many calculations in parallel, ideal for training neural networks. TPUs are Google's ML chips.","Hundreds of calculators working at once instead of one fast calculator.","Vertex AI custom training uses GPUs/TPUs for deep learning."],
+ ["Chip khusus yang menjalankan banyak perhitungan secara paralel, ideal untuk melatih neural network. TPU adalah chip ML buatan Google.","Ratusan kalkulator bekerja bersamaan, bukan satu kalkulator cepat.","Vertex AI custom training memakai GPU/TPU untuk deep learning."]);
+g("vm","VM",["VM","VMs","virtual machine","virtual machines"],"Virtual Machine","General",
+ ["A computer simulated in software on a physical server. Compute Engine gives you VMs.","Renting a room in a big building instead of buying a house.","\"Install it yourself on Compute Engine VMs\" is usually the wrong (DIY) answer."],
+ ["Komputer yang disimulasikan dengan software di atas server fisik. Compute Engine menyediakan VM.","Menyewa kamar di gedung besar, bukan membeli rumah sendiri.","\"Install sendiri di VM Compute Engine\" biasanya jawaban yang salah (DIY)."]);
+g("ui","UI / GUI",["GUI","UI","UIs"],"(Graphical) User Interface","General",
+ ["The screens, buttons and forms a person uses to interact with software.","The dashboard of a car, as opposed to the engine.","\"Visual / GUI ETL for non-coders\" → Data Fusion."],
+ ["Layar, tombol dan form yang dipakai orang untuk berinteraksi dengan software.","Dasbor mobil, bukan mesinnya.","\"ETL visual / GUI untuk yang tidak bisa coding\" → Data Fusion."]);
+g("diy","DIY",["DIY"],"Do It Yourself","General",
+ ["Building and running something yourself instead of using a managed service.","Cooking every meal from scratch versus ordering from a restaurant.","Google's exam prefers managed services over DIY on VMs."],
+ ["Membangun dan mengelola sesuatu sendiri, bukan memakai layanan managed.","Masak sendiri setiap hari vs pesan di restoran.","Ujian Google lebih memilih layanan managed daripada DIY di VM."]);
+g("managed","Managed service",["fully managed","managed service","managed services"],"","General",
+ ["A service where Google runs the servers, patching, scaling and backups for you.","Renting an apartment where the landlord fixes the plumbing.","\"Minimal operational overhead\" → pick the managed/serverless option."],
+ ["Layanan yang server, patch, scaling dan backup-nya diurus Google.","Menyewa apartemen yang pipa bocornya diperbaiki pemilik gedung.","\"Overhead operasional minimal\" → pilih yang managed/serverless."]);
+g("serverless","Serverless",["serverless"],"","General",
+ ["You don't create or size any servers or clusters; the service scales automatically and you pay per use.","Taking a taxi instead of owning a car: no maintenance, pay per trip.","BigQuery, Dataflow, Pub/Sub, Cloud Run are serverless."],
+ ["Kamu tidak membuat atau mengatur ukuran server/cluster; layanannya scale otomatis dan bayar sesuai pemakaian.","Naik taksi online daripada punya mobil: tidak perlu servis, bayar per perjalanan.","BigQuery, Dataflow, Pub/Sub, Cloud Run itu serverless."]);
+g("latency","Latency",["latency","low-latency","low latency"],"","General",
+ ["How long one request takes to get an answer, e.g. 5 ms.","The waiting time at a counter for one customer.","\"<10 ms per lookup\" → Bigtable / Memorystore, not BigQuery."],
+ ["Berapa lama satu request mendapat jawaban, misalnya 5 ms.","Waktu tunggu satu pelanggan di loket.","\"<10 ms per lookup\" → Bigtable / Memorystore, bukan BigQuery."]);
+g("throughput","Throughput",["throughput"],"","General",
+ ["How much work is done per second, e.g. 100,000 writes/second.","How many customers a counter serves per hour.","High write throughput of time-series data → Bigtable."],
+ ["Berapa banyak pekerjaan per detik, misalnya 100.000 write/detik.","Berapa banyak pelanggan yang dilayani loket per jam.","Throughput write tinggi untuk data time series → Bigtable."]);
+g("qps","QPS",["QPS"],"Queries Per Second","General",
+ ["The number of requests a system handles every second.","Cars passing a toll gate per second.","\"200,000 reads per second\" points to Bigtable."],
+ ["Jumlah request yang ditangani sistem setiap detik.","Jumlah mobil yang lewat gerbang tol per detik.","\"200.000 read per detik\" menunjuk ke Bigtable."]);
+g("scale","Scale up vs scale out",["scale up","scales up","scale out","scales out","horizontal scaling","horizontally","vertical scaling"],"","General",
+ ["Scale up (vertical) = a bigger machine. Scale out (horizontal) = more machines sharing the work.","Scale up = a bigger truck; scale out = more trucks.","Cloud SQL scales up; Spanner and Bigtable scale out."],
+ ["Scale up (vertikal) = mesin lebih besar. Scale out (horizontal) = lebih banyak mesin berbagi kerja.","Scale up = truk lebih besar; scale out = truknya ditambah.","Cloud SQL scale up; Spanner dan Bigtable scale out."]);
+g("autoscaling","Autoscaling",["autoscaling","autoscale","autoscales"],"","Ops & Cost",
+ ["Automatically adding or removing capacity based on load.","A shop calling in extra cashiers when the queue grows.","Dataflow, Dataproc (policies), Bigtable, BigQuery Editions all support autoscaling."],
+ ["Menambah atau mengurangi kapasitas secara otomatis sesuai beban.","Toko yang memanggil kasir tambahan saat antrean memanjang.","Dataflow, Dataproc (policy), Bigtable, BigQuery Editions mendukung autoscaling."]);
+g("tb","TB / PB / GB",["TB","PB","GB","TiB","petabyte","petabytes","terabytes"],"Terabyte / Petabyte / Gigabyte","General",
+ ["Data sizes: 1 GB ≈ a thousand MB, 1 TB ≈ a thousand GB, 1 PB ≈ a thousand TB. TiB is the binary version (1,024 GiB).","1 GB ≈ a movie, 1 TB ≈ a thousand movies, 1 PB ≈ a million movies.","Scale words decide the answer: GB → Cloud SQL ok; TB–PB → BigQuery/Bigtable."],
+ ["Ukuran data: 1 GB ≈ seribu MB, 1 TB ≈ seribu GB, 1 PB ≈ seribu TB. TiB adalah versi biner (1.024 GiB).","1 GB ≈ satu film, 1 TB ≈ seribu film, 1 PB ≈ sejuta film.","Kata skala menentukan jawaban: GB → Cloud SQL masih oke; TB–PB → BigQuery/Bigtable."]);
+g("mbps","Mbps / Gbps",["Mbps","Gbps"],"Megabits / Gigabits per second","Network",
+ ["Network speed in bits per second. 8 bits = 1 byte, so 100 Mbps ≈ 12.5 MB per second.","The width of a water pipe.","Transfer math: 1 TB over 100 Mbps ≈ 1 day."],
+ ["Kecepatan jaringan dalam bit per detik. 8 bit = 1 byte, jadi 100 Mbps ≈ 12,5 MB per detik.","Lebar pipa air.","Hitungan transfer: 1 TB lewat 100 Mbps ≈ 1 hari."]);
+g("gcp","GCP / Google Cloud",["GCP"],"Google Cloud Platform","General",
+ ["Google's public cloud: compute, storage, data and AI services you rent over the internet.","A huge rentable data center.","The whole exam is about choosing the right GCP service."],
+ ["Cloud publik Google: layanan compute, storage, data dan AI yang disewa lewat internet.","Data center raksasa yang bisa disewa.","Seluruh ujian ini tentang memilih layanan GCP yang tepat."]);
+g("aws","AWS / Azure",["AWS","Azure"],"Amazon Web Services / Microsoft Azure","General",
+ ["Other public clouds from Amazon and Microsoft.","Other big malls next to Google's mall.","Data in AWS/Azure that can't move → BigQuery Omni."],
+ ["Cloud publik lain dari Amazon dan Microsoft.","Mal besar lain di sebelah mal milik Google.","Data di AWS/Azure yang tidak boleh dipindah → BigQuery Omni."]);
+g("s3","S3",["S3","Amazon S3"],"Amazon Simple Storage Service","Storage",
+ ["Amazon's object storage, the AWS equivalent of Cloud Storage.","AWS's version of GCS.","S3 → GCS copies use Storage Transfer Service; querying S3 in place uses BigQuery Omni."],
+ ["Object storage milik Amazon, padanan Cloud Storage di AWS.","Versi GCS milik AWS.","Copy S3 → GCS pakai Storage Transfer Service; query S3 di tempat pakai BigQuery Omni."]);
+g("multicloud","Multicloud",["multicloud","multi-cloud","cross-cloud"],"","General",
+ ["Using more than one cloud provider (e.g. GCP + AWS) at the same time.","Shopping at two supermarkets.","BigQuery Omni / BigLake are the multicloud answers."],
+ ["Memakai lebih dari satu penyedia cloud (misalnya GCP + AWS) bersamaan.","Belanja di dua supermarket.","BigQuery Omni / BigLake adalah jawaban untuk multicloud."]);
+g("onprem","On-premises (on-prem)",["on-premises","on-prem","on-premise"],"","Migration",
+ ["Servers in your company's own data center, not in a cloud.","Your own house versus a rented apartment.","\"Migrate from on-prem\" questions test transfer tools and lift & shift."],
+ ["Server di data center milik perusahaan sendiri, bukan di cloud.","Rumah milik sendiri vs apartemen sewaan.","Soal \"migrasi dari on-prem\" menguji tool transfer dan lift & shift."]);
+g("liftshift","Lift and shift",["lift and shift","lift & shift","lift-and-shift"],"","Migration",
+ ["Moving an existing system to the cloud with minimal changes.","Moving house with all your furniture as-is.","\"Minimal changes\" + Spark/Hadoop → Dataproc."],
+ ["Memindahkan sistem yang sudah ada ke cloud dengan perubahan minimal.","Pindah rumah dengan semua perabot apa adanya.","\"Perubahan minimal\" + Spark/Hadoop → Dataproc."]);
+g("region","Region / zone",["multi-region","multi-zone","dual-region","regional","region","regions","zone","zones"],"","Network",
+ ["A region is a geographic area (e.g. asia-southeast2 = Jakarta) with several isolated data centers called zones.","A region is a city; zones are separate buildings in that city.","Zone failure → HA in another zone. Region failure → replica in another region."],
+ ["Region adalah area geografis (misalnya asia-southeast2 = Jakarta) yang berisi beberapa data center terpisah bernama zone.","Region = kota; zone = gedung-gedung terpisah di kota itu.","Zone mati → HA di zone lain. Region mati → replika di region lain."]);
+g("sla","SLA",["SLA","SLAs"],"Service Level Agreement","General",
+ ["A promise about availability, e.g. 99.99% uptime, with credits if it's broken.","A delivery guarantee: \"arrives in 1 day or your money back\".","Spanner multi-region: 99.999% SLA."],
+ ["Janji tingkat ketersediaan, misalnya uptime 99,99%, dengan kompensasi kalau dilanggar.","Garansi pengiriman: \"sampai 1 hari atau uang kembali\".","Spanner multi-region: SLA 99,999%."]);
+g("availability","Availability (99.9…%)",["high availability","availability"],"","General",
+ ["The share of time a system works. 99.99% ≈ 52 minutes of downtime a year; 99.999% ≈ 5 minutes.","How often the shop is open when you arrive.","\"Five nines\" (99.999%) → Spanner multi-region."],
+ ["Persentase waktu sebuah sistem berfungsi. 99,99% ≈ 52 menit down per tahun; 99,999% ≈ 5 menit.","Seberapa sering toko buka saat kamu datang.","\"Five nines\" (99,999%) → Spanner multi-region."]);
+g("ha","HA",["HA"],"High Availability","Database",
+ ["A setup that keeps running when one component fails, usually with a standby that takes over automatically.","A backup goalkeeper warming up on the bench.","Cloud SQL HA = standby in another zone (zone failure only)."],
+ ["Setup yang tetap jalan saat satu komponen gagal, biasanya ada standby yang otomatis mengambil alih.","Kiper cadangan yang sudah pemanasan di bangku.","Cloud SQL HA = standby di zone lain (hanya untuk zone mati)."]);
+g("failover","Failover",["failover","fail over","fails over"],"","Database",
+ ["Automatically switching traffic to a backup when the primary fails.","The generator turning on when PLN power goes out.","Bigtable multi-cluster routing and Cloud SQL HA fail over automatically."],
+ ["Memindahkan traffic otomatis ke cadangan saat yang utama gagal.","Genset menyala otomatis saat listrik PLN padam.","Bigtable multi-cluster routing dan Cloud SQL HA melakukan failover otomatis."]);
+g("dr","DR",["DR","disaster recovery"],"Disaster Recovery","Ops & Cost",
+ ["Plans and tools to recover after a big failure, like a whole region going down.","An emergency plan after a flood hits the office.","Pick the cheapest DR that meets the stated RPO and RTO."],
+ ["Rencana dan tool untuk pulih setelah kegagalan besar, misalnya satu region mati.","Rencana darurat setelah kantor kebanjiran.","Pilih DR termurah yang memenuhi RPO dan RTO di soal."]);
+g("rpo","RPO",["RPO"],"Recovery Point Objective","Ops & Cost",
+ ["The maximum amount of data (measured in time) you can afford to lose. RPO 15 minutes = you may lose the last 15 minutes of data.","How many pages of your thesis you can afford to lose since the last save.","Turbo replication on GCS = 15-minute RPO."],
+ ["Batas data yang boleh hilang, diukur dalam waktu. RPO 15 menit = boleh kehilangan data 15 menit terakhir.","Berapa halaman skripsi yang rela hilang sejak terakhir di-save.","Turbo replication di GCS = RPO 15 menit."]);
+g("rto","RTO",["RTO"],"Recovery Time Objective","Ops & Cost",
+ ["The maximum time the system may be down before it must work again.","How long the shop can stay closed after a blackout.","Loose RTO (days) → backups are fine; tight RTO (minutes) → replicas/failover."],
+ ["Batas waktu sistem boleh mati sebelum harus jalan lagi.","Berapa lama toko boleh tutup setelah listrik padam.","RTO longgar (hari) → backup cukup; RTO ketat (menit) → replika/failover."]);
+g("rporto","RPO/RTO",["RPO/RTO"],"Recovery Point / Time Objective","Ops & Cost",
+ ["RPO = how much data you can lose; RTO = how long you can be down. Lower values cost more.","RPO = lost pages; RTO = time until you can write again.","Every DR question: match the cheapest option to these two numbers."],
+ ["RPO = berapa banyak data boleh hilang; RTO = berapa lama boleh mati. Makin kecil, makin mahal.","RPO = halaman yang hilang; RTO = waktu sampai bisa menulis lagi.","Setiap soal DR: cocokkan opsi termurah dengan dua angka ini."]);
+g("pitr","PITR",["PITR","point-in-time recovery"],"Point-In-Time Recovery","Database",
+ ["Restoring a database to its exact state at a chosen moment, using backups plus change logs.","Rewinding a CCTV recording to 10:58, just before the accident.","Cloud SQL / Spanner: undo a bad delete by restoring to a clone at a timestamp."],
+ ["Mengembalikan database ke kondisi persis di momen tertentu, memakai backup + log perubahan.","Memutar mundur rekaman CCTV ke 10:58, tepat sebelum kejadian.","Cloud SQL / Spanner: batalkan delete yang salah dengan restore ke clone pada timestamp tertentu."]);
+g("idempotent","Idempotent",["idempotent","idempotency"],"","Processing",
+ ["Running the same operation twice gives the same result as running it once.","Pressing the lift button five times still calls the lift once.","Retries, backfills and duplicate Pub/Sub messages are safe only if processing is idempotent (WRITE_TRUNCATE a partition / MERGE)."],
+ ["Menjalankan operasi yang sama dua kali hasilnya sama dengan sekali.","Menekan tombol lift lima kali, lift tetap dipanggil sekali.","Retry, backfill dan pesan Pub/Sub duplikat hanya aman kalau prosesnya idempotent (WRITE_TRUNCATE per partisi / MERGE)."]);
+g("backoff","Exponential backoff",["exponential backoff","backoff"],"","Ops & Cost",
+ ["Retrying a failed request after waiting longer each time (1s, 2s, 4s, 8s…), often with random jitter.","Calling a busy friend back after 1 minute, then 2, then 4…","Answer for 429 / quotaExceeded / rateLimitExceeded errors."],
+ ["Mengulang request yang gagal dengan jeda yang makin lama (1d, 2d, 4d, 8d…), sering dengan jitter acak.","Menelepon teman yang sibuk setelah 1 menit, lalu 2, lalu 4…","Jawaban untuk error 429 / quotaExceeded / rateLimitExceeded."]);
+g("quota","Quota",["quota","quotas","quotaExceeded","rateLimitExceeded"],"","Ops & Cost",
+ ["A limit on how much of a resource you can use (requests per second, bytes per day…).","A daily data package limit on your phone plan.","Hard cap on BigQuery spend per user → custom quotas."],
+ ["Batas pemakaian sebuah resource (request per detik, byte per hari…).","Batas kuota internet harian di paket HP.","Batas keras biaya BigQuery per user → custom quota."]);
+g("oom","OOM",["OOM","out of memory"],"Out Of Memory","Processing",
+ ["A worker crashed because it ran out of RAM.","Trying to fit a wardrobe into a hatchback.","Dataflow OOM → bigger machines, fix hot keys, smaller side inputs."],
+ ["Worker crash karena RAM-nya habis.","Memaksa lemari masuk ke mobil hatchback.","Dataflow OOM → mesin lebih besar, perbaiki hot key, side input lebih kecil."]);
+g("ttl","TTL / expiration",["TTL","expiration","time-to-live"],"Time To Live","Storage",
+ ["An automatic expiry: data older than X is deleted.","Milk with an expiry date that throws itself away.","BigQuery table/partition expiration; Bigtable max-age garbage collection."],
+ ["Kedaluwarsa otomatis: data yang lebih tua dari X dihapus.","Susu yang membuang dirinya sendiri saat lewat tanggal kedaluwarsa.","Table/partition expiration di BigQuery; garbage collection max-age di Bigtable."]);
+g("labels","Labels (billing)",["labels"],"","Ops & Cost",
+ ["Key–value tags (team=finance) on resources and jobs, used to break down costs.","Name stickers on lunch boxes in the office fridge.","\"Spend per team\" → labels + billing export to BigQuery."],
+ ["Tag key–value (team=finance) di resource dan job, dipakai untuk memecah biaya.","Stiker nama di kotak bekal di kulkas kantor.","\"Biaya per tim\" → labels + billing export ke BigQuery."]);
+g("ui_console","Console / gcloud",["gcloud","Cloud Shell"],"","General",
+ ["Ways to control GCP: the web Console, the gcloud command-line tool, and Cloud Shell (a browser terminal).","Steering wheel (console) versus keyboard shortcuts (gcloud).","Shows up in options like \"run gcloud storage cp\"."],
+ ["Cara mengontrol GCP: Console di web, tool command-line gcloud, dan Cloud Shell (terminal di browser).","Setir (console) vs shortcut keyboard (gcloud).","Muncul di opsi seperti \"jalankan gcloud storage cp\"."]);
+
+/* ---------- Databases ---------- */
+g("sql","SQL",["SQL"],"Structured Query Language","Database",
+ ["The standard language for asking questions of tables: SELECT, JOIN, GROUP BY…","A precise way to ask a librarian for books.","BigQuery, Cloud SQL, AlloyDB and Spanner speak SQL; Bigtable mostly doesn't."],
+ ["Bahasa standar untuk bertanya ke tabel: SELECT, JOIN, GROUP BY…","Cara yang tepat untuk meminta buku ke pustakawan.","BigQuery, Cloud SQL, AlloyDB dan Spanner pakai SQL; Bigtable umumnya tidak."]);
+g("nosql","NoSQL",["NoSQL"],"Not only SQL","Database",
+ ["Databases that don't use relational tables and joins (key-value, wide-column, document). They trade query flexibility for scale or flexibility of schema.","A giant labelled locker room instead of a library catalogue.","Bigtable (wide-column) and Firestore (document) are NoSQL."],
+ ["Database yang tidak memakai tabel relasional dan join (key-value, wide-column, dokumen). Fleksibilitas query ditukar dengan skala atau schema yang fleksibel.","Ruang loker berlabel raksasa, bukan katalog perpustakaan.","Bigtable (wide-column) dan Firestore (dokumen) adalah NoSQL."]);
+g("relational","Relational database",["relational"],"","Database",
+ ["Data in tables with fixed columns, linked by keys and queried with SQL joins.","Excel sheets linked by an ID column.","Relational + transactions → Cloud SQL / AlloyDB / Spanner."],
+ ["Data di tabel dengan kolom tetap, terhubung lewat key dan di-query dengan SQL join.","Sheet Excel yang saling terhubung lewat kolom ID.","Relasional + transaksi → Cloud SQL / AlloyDB / Spanner."]);
+g("oltp","OLTP",["OLTP"],"Online Transaction Processing","Database",
+ ["Workloads with many small, fast reads and writes of individual rows: orders, payments, logins.","The cashier scanning items one by one all day.","OLTP → Cloud SQL / AlloyDB / Spanner. Never BigQuery."],
+ ["Beban kerja dengan banyak baca/tulis kecil dan cepat per baris: order, pembayaran, login.","Kasir yang men-scan barang satu per satu sepanjang hari.","OLTP → Cloud SQL / AlloyDB / Spanner. Bukan BigQuery."]);
+g("olap","OLAP / analytics",["OLAP","analytical"],"Online Analytical Processing","Analytics",
+ ["Workloads that scan many rows to aggregate: totals, trends, dashboards.","The accountant summarising a whole year of receipts.","OLAP / analytics → BigQuery."],
+ ["Beban kerja yang men-scan banyak baris untuk agregasi: total, tren, dashboard.","Akuntan yang merangkum seluruh struk satu tahun.","OLAP / analitik → BigQuery."]);
+g("acid","ACID",["ACID"],"Atomicity, Consistency, Isolation, Durability","Database",
+ ["The guarantees of a safe transaction: all-or-nothing, rules respected, no interference between transactions, and saved permanently.","A bank transfer: money leaves A and arrives at B, or nothing happens at all.","Need multi-row ACID → relational DB / Spanner; Bigtable is atomic per row only."],
+ ["Jaminan transaksi yang aman: semua-atau-tidak-sama-sekali, aturan dipatuhi, transaksi tidak saling ganggu, dan tersimpan permanen.","Transfer bank: uang keluar dari A dan masuk ke B, atau tidak terjadi apa-apa.","Butuh ACID multi-baris → database relasional / Spanner; Bigtable hanya atomik per baris."]);
+g("transaction","Transaction",["transaction","transactions","transactional","multi-row"],"","Database",
+ ["A group of operations that succeed or fail together.","Buying something online: payment and stock update happen together or not at all.","\"Atomically update two rows\" rules out Bigtable."],
+ ["Kumpulan operasi yang berhasil atau gagal bersama-sama.","Belanja online: pembayaran dan pengurangan stok terjadi bersamaan atau tidak sama sekali.","\"Update dua baris secara atomik\" mencoret Bigtable."]);
+g("consistency","Strong vs eventual consistency",["strong consistency","strongly consistent","eventual consistency","eventually consistent","external consistency","external"],"","Database",
+ ["Strong: every read sees the latest write. Eventual: copies catch up after a short delay, so a read might briefly see old data.","Strong = one shared whiteboard; eventual = photocopies handed around the office.","Spanner = strong/external consistency globally; Bigtable replication = eventual."],
+ ["Strong: setiap read selalu melihat write terbaru. Eventual: salinan menyusul setelah jeda singkat, jadi read bisa sebentar melihat data lama.","Strong = satu papan tulis bersama; eventual = fotokopi yang diedarkan ke seluruh kantor.","Spanner = strong/external consistency global; replikasi Bigtable = eventual."]);
+g("schema","Schema",["schema","schemas"],"","Database",
+ ["The structure of data: column names, types and nesting.","The blank form that defines which fields must be filled.","Avro files carry their schema; Pub/Sub topics can enforce schemas."],
+ ["Struktur data: nama kolom, tipe dan nesting-nya.","Formulir kosong yang menentukan kolom apa saja yang harus diisi.","File Avro membawa schema-nya; topic Pub/Sub bisa mewajibkan schema."]);
+g("primarykey","Primary key",["primary key","primary keys","PK"],"","Database",
+ ["The column(s) that uniquely identify each row.","Your NIK: unique per person.","Spanner: never use a monotonically increasing primary key → use UUIDv4."],
+ ["Kolom yang mengidentifikasi setiap baris secara unik.","NIK kamu: unik per orang.","Spanner: jangan pakai primary key yang terus naik → pakai UUIDv4."]);
+g("uuid","UUID",["UUID","UUIDv4","UUIDs"],"Universally Unique Identifier","Database",
+ ["A random 128-bit ID like 3f2a…; v4 is fully random so new rows spread evenly.","Random lottery numbers instead of a queue number.","Spanner hotspot fix → UUIDv4 keys."],
+ ["ID acak 128-bit seperti 3f2a…; v4 sepenuhnya acak sehingga baris baru tersebar merata.","Nomor undian acak, bukan nomor antrean.","Perbaikan hotspot Spanner → key UUIDv4."]);
+g("monotonic","Monotonically increasing key",["monotonically increasing","monotonic","auto-increment","auto-incrementing","sequential IDs","sequential keys"],"","Database",
+ ["A key that always grows (1, 2, 3… or timestamps), so every new row lands at the end of the key range on one server.","Everyone queuing at the last counter because numbers only go up.","Causes hotspots in Spanner and Bigtable."],
+ ["Key yang selalu bertambah (1, 2, 3… atau timestamp), jadi setiap baris baru jatuh di ujung range key, di satu server.","Semua orang antre di loket terakhir karena nomornya selalu naik.","Menyebabkan hotspot di Spanner dan Bigtable."]);
+g("index","Index / secondary index",["secondary index","secondary indexes","index","indexes"],"","Database",
+ ["A lookup structure that makes searching by a column fast. A secondary index is on a column other than the primary key.","The index at the back of a book.","Bigtable has no secondary indexes (row key only); Firestore indexes fields automatically."],
+ ["Struktur pencarian yang membuat pencarian berdasarkan kolom tertentu jadi cepat. Secondary index = index di kolom selain primary key.","Indeks di bagian belakang buku.","Bigtable tidak punya secondary index (hanya row key); Firestore meng-index field otomatis."]);
+g("replica","Replica / replication",["read replica","read replicas","replica","replicas","replication","replicate","replicated","cross-region replica"],"","Database",
+ ["A copy of a database kept in sync with the original. Read replicas serve reads; cross-region replicas cover disasters.","Photocopies of the master ledger in other branches.","Reports slow the app → read replica. Region outage → cross-region replica."],
+ ["Salinan database yang terus disinkronkan dengan aslinya. Read replica melayani read; cross-region replica untuk bencana.","Fotokopi buku besar di cabang-cabang lain.","Laporan memperlambat app → read replica. Region mati → cross-region replica."]);
+g("standby","Standby",["standby"],"","Database",
+ ["An idle copy ready to take over if the primary fails.","The substitute player on the bench.","Cloud SQL HA keeps a standby in another zone."],
+ ["Salinan yang menganggur dan siap mengambil alih kalau yang utama gagal.","Pemain cadangan di bangku.","Cloud SQL HA menyimpan standby di zone lain."]);
+g("shard","Shard / sharding",["sharded","sharding","shard","shards","date-sharded"],"","Database",
+ ["Splitting data into separate pieces stored separately, e.g. one table per day.","Splitting the phone book into volumes A–F, G–M…","BigQuery: partitioned tables beat date-sharded tables."],
+ ["Memecah data jadi beberapa bagian yang disimpan terpisah, misalnya satu tabel per hari.","Memecah buku telepon jadi jilid A–F, G–M…","BigQuery: tabel partitioned lebih baik daripada tabel date-sharded."]);
+g("normalize","Normalize / denormalize",["denormalize","denormalized","denormalization","normalize","normalized","normalization","3NF"],"","Analytics",
+ ["Normalizing splits data into many tables to avoid repetition (good for OLTP). Denormalizing combines it into wider tables to avoid joins (good for analytics).","Normalized = separate folders per topic; denormalized = one big binder with everything.","BigQuery prefers denormalized data with nested/repeated fields."],
+ ["Normalisasi memecah data ke banyak tabel supaya tidak berulang (bagus untuk OLTP). Denormalisasi menggabungkannya jadi tabel lebar supaya tidak perlu join (bagus untuk analitik).","Normalized = map terpisah per topik; denormalized = satu binder besar berisi semuanya.","BigQuery lebih suka data denormalized dengan nested/repeated fields."]);
+g("join","JOIN",["JOIN","joins","join","self-join","self-joins","cross join","cross joins"],"","Analytics",
+ ["Combining rows from two tables that share a key. A self-join joins a table to itself; a cross join pairs every row with every row.","Matching guests to their table numbers on two lists.","Huge self-joins → window functions; Bigtable has no joins."],
+ ["Menggabungkan baris dari dua tabel yang punya key yang sama. Self-join = join tabel ke dirinya sendiri; cross join = setiap baris dipasangkan dengan setiap baris.","Mencocokkan daftar tamu dengan daftar nomor meja.","Self-join besar → window function; Bigtable tidak punya join."]);
+g("htap","HTAP",["HTAP"],"Hybrid Transactional/Analytical Processing","Database",
+ ["One database that handles both OLTP transactions and analytical queries on the same live data.","A shop where the cashier can also instantly tell you today's total sales.","AlloyDB's columnar engine enables HTAP."],
+ ["Satu database yang menangani transaksi OLTP sekaligus query analitik di data live yang sama.","Toko yang kasirnya juga bisa langsung menyebut total penjualan hari ini.","Columnar engine AlloyDB memungkinkan HTAP."]);
+g("columnar","Columnar storage",["columnar","column-oriented"],"","Analytics",
+ ["Storing data column by column instead of row by row, so queries read only the columns they need.","Reading only the 'price' column of every receipt instead of whole receipts.","Why SELECT * is expensive in BigQuery; also AlloyDB's columnar engine."],
+ ["Menyimpan data per kolom, bukan per baris, sehingga query hanya membaca kolom yang dibutuhkan.","Hanya membaca kolom 'harga' di setiap struk, bukan seluruh struknya.","Alasan SELECT * mahal di BigQuery; juga columnar engine AlloyDB."]);
+g("dml","DML / DDL",["DML","DDL"],"Data Manipulation / Definition Language","Database",
+ ["DML = SQL that changes data (INSERT, UPDATE, DELETE, MERGE). DDL = SQL that changes structure (CREATE, ALTER).","DML edits the contents of the form; DDL redesigns the form.","Avoid frequent single-row DML in BigQuery; batch it."],
+ ["DML = SQL yang mengubah data (INSERT, UPDATE, DELETE, MERGE). DDL = SQL yang mengubah struktur (CREATE, ALTER).","DML mengisi isi formulir; DDL mendesain ulang formulirnya.","Hindari DML per baris yang sering di BigQuery; kumpulkan jadi batch."]);
+g("merge","MERGE (upsert)",["MERGE","upsert","upserts"],"","Analytics",
+ ["One SQL statement that inserts new rows and updates existing ones based on a key.","Updating the contact list: add new people, update changed numbers.","Idempotent loads and SCD Type 2 use MERGE."],
+ ["Satu statement SQL yang meng-insert baris baru dan meng-update baris yang sudah ada berdasarkan key.","Memperbarui daftar kontak: tambah orang baru, ubah nomor yang berganti.","Load yang idempotent dan SCD Type 2 memakai MERGE."]);
+g("ctas","CTAS",["CTAS","CREATE TABLE AS SELECT"],"CREATE TABLE … AS SELECT","Analytics",
+ ["Creating a new table from the results of a query.","Photocopying a document into a new, better-organised folder.","Make an existing table partitioned → CTAS into a new table."],
+ ["Membuat tabel baru dari hasil sebuah query.","Memfotokopi dokumen ke map baru yang lebih rapi.","Ubah tabel yang ada jadi partitioned → CTAS ke tabel baru."]);
+g("star","Star schema / fact & dimension",["star schema","fact table","fact tables","dimension table","dimension tables","dimensions"],"","Analytics",
+ ["A warehouse design with a big fact table of events (sales) linked to small dimension tables (customer, product, date).","A big receipt book (facts) plus small address books (dimensions).","Fine in BigQuery; denormalize where large joins hurt."],
+ ["Desain warehouse dengan satu tabel fact besar berisi event (penjualan) yang terhubung ke tabel dimension kecil (customer, produk, tanggal).","Buku struk besar (fact) plus buku alamat kecil (dimension).","Aman di BigQuery; denormalisasi kalau join besar terasa berat."]);
+g("scd","SCD",["SCD","SCD Type 2","Type 2"],"Slowly Changing Dimension","Analytics",
+ ["How you handle dimension values that change over time. Type 1 overwrites; Type 2 keeps history rows with valid_from / valid_to.","Type 2 = keeping all your old ID cards with their validity dates.","\"Show the value at the time of the sale\" → SCD Type 2."],
+ ["Cara menangani nilai dimensi yang berubah seiring waktu. Type 1 menimpa; Type 2 menyimpan baris riwayat dengan valid_from / valid_to.","Type 2 = menyimpan semua KTP lamamu beserta masa berlakunya.","\"Tampilkan nilai saat transaksi terjadi\" → SCD Type 2."]);
+g("nested","Nested & repeated fields",["nested and repeated","nested & repeated","nested/repeated","STRUCT","ARRAY","ARRAY<STRUCT>","repeated field"],"","Analytics",
+ ["Storing child records inside the parent row: STRUCT = a nested record, ARRAY = a list.","A receipt that lists its items on the same piece of paper.","Avoid order ↔ line-item joins in BigQuery."],
+ ["Menyimpan record anak di dalam baris induk: STRUCT = record bersarang, ARRAY = daftar.","Satu struk yang mencantumkan semua barangnya di kertas yang sama.","Menghindari join order ↔ line item di BigQuery."]);
+g("view","View / logical view",["logical view","logical views","view","views"],"","Analytics",
+ ["A saved SQL query that looks like a table but stores no data; it runs every time.","A saved search filter.","Doesn't make queries faster; for speed use a materialized view."],
+ ["Query SQL yang disimpan dan terlihat seperti tabel, tapi tidak menyimpan data; dijalankan setiap kali dipakai.","Filter pencarian yang disimpan.","Tidak mempercepat query; untuk kecepatan pakai materialized view."]);
+g("mv","Materialized view",["materialized view","materialized views","MV","MVs"],"","Analytics",
+ ["A view whose results are precomputed and stored, refreshed automatically. BigQuery can rewrite queries to use it.","A pre-cooked dish kept warm instead of cooking it for every order.","\"The same aggregation is queried repeatedly\" → materialized view."],
+ ["View yang hasilnya dihitung di awal lalu disimpan, dan di-refresh otomatis. BigQuery bisa menulis ulang query supaya memakainya.","Masakan yang sudah dimasak dan dihangatkan, bukan dimasak ulang tiap pesanan.","\"Agregasi yang sama di-query berulang kali\" → materialized view."]);
+g("federated","Federated / external query",["federated query","federated queries","federated","EXTERNAL_QUERY","external table","external tables"],"","Analytics",
+ ["Querying data where it lives (Cloud SQL, GCS files, Sheets) from BigQuery without copying it in first.","Calling a friend to check something instead of photocopying their whole notebook.","Occasional join with Cloud SQL, no pipeline → federated query."],
+ ["Meng-query data di tempat asalnya (Cloud SQL, file GCS, Sheets) dari BigQuery tanpa menyalinnya dulu.","Menelepon teman untuk mengecek sesuatu, bukan memfotokopi seluruh catatannya.","Join sesekali dengan Cloud SQL tanpa pipeline → federated query."]);
+g("window_fn","Window function",["window function","window functions","LAG","OVER"],"","Analytics",
+ ["SQL functions that compute across related rows without collapsing them, e.g. running totals or the previous row with LAG().","Looking at the previous and next line of a bank statement while reading each line.","Replace huge self-joins with window functions."],
+ ["Fungsi SQL yang menghitung lintas baris terkait tanpa menggabungkannya, misalnya running total atau baris sebelumnya dengan LAG().","Melihat baris sebelum dan sesudahnya saat membaca setiap baris mutasi rekening.","Ganti self-join besar dengan window function."]);
+g("dryrun","Dry run",["dry run","dry-run"],"","Ops & Cost",
+ ["Asking BigQuery to estimate how many bytes a query will scan without actually running it (free).","Asking the price before ordering.","\"Know the cost before running\" → dry run."],
+ ["Meminta BigQuery memperkirakan berapa byte yang akan di-scan tanpa benar-benar menjalankan query (gratis).","Menanyakan harga sebelum memesan.","\"Tahu biaya sebelum menjalankan\" → dry run."]);
+g("cache","Cache",["cache","cached","caching"],"","General",
+ ["A fast copy of results kept nearby so repeated requests don't hit the slow source.","Keeping your most-used tools on the desk instead of in the warehouse.","BigQuery query cache (24 h), Memorystore, Looker Studio report cache."],
+ ["Salinan hasil yang cepat dan disimpan di dekat pemakai supaya request berulang tidak perlu ke sumber yang lambat.","Menaruh alat yang paling sering dipakai di meja, bukan di gudang.","Query cache BigQuery (24 jam), Memorystore, cache laporan Looker Studio."]);
+})();
+
+(function(){
+const g=(id,term,aliases,full,cat,en,idv)=>PDE.glossary.push({id,term,aliases,full,cat,txt:{en:{def:en[0],analogy:en[1],exam:en[2]},id:{def:idv[0],analogy:idv[1],exam:idv[2]}}});
+
+/* ---------- Storage & BigQuery ---------- */
+g("gcs","GCS",["GCS"],"Google Cloud Storage","Storage",
+ ["Google's object storage for files of any size, organised in buckets.","An unlimited, very durable online drive for machines.","Data lake, backups, archives, staging; storage classes and lifecycle rules."],
+ ["Object storage milik Google untuk file berukuran apa pun, diatur dalam bucket.","Drive online tanpa batas yang sangat awet, untuk mesin.","Data lake, backup, arsip, staging; storage class dan lifecycle rule."]);
+g("object","Object / bucket",["bucket","buckets","object storage","objects"],"","Storage",
+ ["In Cloud Storage, a file is an object and objects live in a container called a bucket.","Files (objects) in a labelled box (bucket).","Retention policies, lifecycle rules and IAM are set per bucket."],
+ ["Di Cloud Storage, file disebut object dan disimpan dalam wadah bernama bucket.","File (object) di dalam kardus berlabel (bucket).","Retention policy, lifecycle rule dan IAM diatur per bucket."]);
+g("storageclass","Storage class",["storage class","storage classes","Nearline","Coldline"],"","Storage",
+ ["GCS pricing tiers by access frequency: Standard (hot), Nearline (≈monthly, 30-day min), Coldline (≈quarterly, 90-day min), Archive (<yearly, 365-day min).","Living room → garage → attic → storage unit across town.","Access frequency in the question picks the class."],
+ ["Tingkat harga GCS berdasarkan frekuensi akses: Standard (sering), Nearline (≈bulanan, min 30 hari), Coldline (≈kuartalan, min 90 hari), Archive (<tahunan, min 365 hari).","Ruang tamu → garasi → loteng → gudang sewaan di ujung kota.","Frekuensi akses di soal menentukan kelasnya."]);
+g("lifecycle","Lifecycle rule",["lifecycle rule","lifecycle rules","lifecycle"],"","Storage",
+ ["An automatic rule on a bucket that changes an object's class or deletes it after a certain age.","An auto-cleaning schedule: move old boxes to the attic, throw away after 7 years.","Known access pattern → lifecycle rule; unknown → Autoclass."],
+ ["Aturan otomatis di bucket yang mengubah kelas objek atau menghapusnya setelah umur tertentu.","Jadwal bersih-bersih otomatis: pindahkan kardus lama ke loteng, buang setelah 7 tahun.","Pola akses diketahui → lifecycle rule; tidak diketahui → Autoclass."]);
+g("autoclass","Autoclass",["Autoclass"],"","Storage",
+ ["A GCS feature that automatically moves each object to the right storage class based on how often it's actually read.","A smart wardrobe that moves clothes you never wear to the back.","\"Access pattern unknown, minimise cost\" → Autoclass."],
+ ["Fitur GCS yang otomatis memindahkan setiap objek ke storage class yang tepat sesuai seberapa sering benar-benar dibaca.","Lemari pintar yang memindahkan baju yang tidak pernah dipakai ke belakang.","\"Pola akses tidak diketahui, minimalkan biaya\" → Autoclass."]);
+g("worm","WORM",["WORM","Bucket Lock","retention policy","retention policies"],"Write Once, Read Many","Storage",
+ ["Data that can be written once and then can't be changed or deleted until a retention period ends. In GCS: a retention policy locked with Bucket Lock.","A document sealed in a time capsule.","\"Must not be deleted for 7 years, even by admins\" → retention policy + Bucket Lock."],
+ ["Data yang ditulis sekali lalu tidak bisa diubah atau dihapus sampai masa simpannya habis. Di GCS: retention policy yang dikunci dengan Bucket Lock.","Dokumen yang disegel di dalam kapsul waktu.","\"Tidak boleh dihapus selama 7 tahun, bahkan oleh admin\" → retention policy + Bucket Lock."]);
+g("versioning","Object versioning / soft delete",["object versioning","versioning","soft delete"],"","Storage",
+ ["Versioning keeps old versions when an object is overwritten; soft delete keeps deleted objects for a recovery window.","Your document's version history plus a recycle bin.","Recover overwritten/deleted GCS files."],
+ ["Versioning menyimpan versi lama saat objek ditimpa; soft delete menyimpan objek yang dihapus selama jangka waktu tertentu untuk dipulihkan.","Riwayat versi dokumen plus recycle bin.","Memulihkan file GCS yang tertimpa/terhapus."]);
+g("signedurl","Signed URL",["signed URL","signed URLs"],"","Security",
+ ["A link to one GCS object that works for a limited time without needing a Google account.","A temporary guest pass for one room.","\"External auditor without a Google account, 24 hours\" → signed URL."],
+ ["Link ke satu objek GCS yang berlaku sementara tanpa perlu akun Google.","Kartu tamu sementara untuk satu ruangan.","\"Auditor luar tanpa akun Google, 24 jam\" → signed URL."]);
+g("turbo","Turbo replication",["turbo replication"],"","Storage",
+ ["A dual-region GCS option that replicates new objects to the second region with a 15-minute RPO target.","Express courier between two warehouses.","\"15-minute RPO, two specific regions\" → dual-region + turbo replication."],
+ ["Opsi GCS dual-region yang mereplikasi objek baru ke region kedua dengan target RPO 15 menit.","Kurir kilat antara dua gudang.","\"RPO 15 menit, dua region tertentu\" → dual-region + turbo replication."]);
+g("bq","BigQuery",["BigQuery","BQ"],"","Analytics",
+ ["Google's serverless data warehouse for SQL analytics on TB–PB of data.","A gigantic, instantly searchable library you rent by the shelf you read.","The answer for analytics, dashboards and SQL at scale; never for OLTP."],
+ ["Data warehouse serverless milik Google untuk analitik SQL di data TB–PB.","Perpustakaan raksasa yang bisa dicari instan, bayar per rak yang dibaca.","Jawaban untuk analitik, dashboard dan SQL skala besar; bukan untuk OLTP."]);
+g("warehouse","Data warehouse",["data warehouse","warehouse","warehouses"],"","Analytics",
+ ["A central database designed for analytics and reporting across the company's data.","The company's single archive room organised for reports.","BigQuery is Google's warehouse; Teradata/Redshift migrations go there."],
+ ["Database pusat yang dirancang untuk analitik dan laporan dari seluruh data perusahaan.","Satu ruang arsip perusahaan yang ditata untuk kebutuhan laporan.","BigQuery adalah warehouse Google; migrasi Teradata/Redshift berakhir di sana."]);
+g("partition","Partitioning",["partitioned","partitioning","partition","partitions","PARTITION BY","partition pruning","partition filter"],"","Analytics",
+ ["Splitting a table into chunks, usually by date, so queries that filter on that column skip the other chunks.","Separate rooms per date in an archive.","Date filters + high cost → partition by date + require partition filter."],
+ ["Memecah tabel menjadi potongan, biasanya per tanggal, supaya query yang memfilter kolom itu melewati potongan lain.","Ruang arsip terpisah per tanggal.","Filter tanggal + biaya tinggi → partition by date + require partition filter."]);
+g("clustering","Clustering",["clustered","clustering","CLUSTER BY"],"","Analytics",
+ ["Sorting the data inside a BigQuery table (or partition) by up to 4 columns so filters on them skip blocks.","Books sorted alphabetically on each shelf.","\"Partition by date, cluster by customer_id\"."],
+ ["Mengurutkan data di dalam tabel (atau partisi) BigQuery berdasarkan sampai 4 kolom, sehingga filter di kolom itu bisa melewati blok.","Buku yang diurutkan alfabetis di setiap rak.","\"Partition by date, cluster by customer_id\"."]);
+g("cardinality","Cardinality",["high-cardinality","high cardinality","low-cardinality","cardinality"],"","Analytics",
+ ["How many distinct values a column has. customer_id = high cardinality; gender = low.","How many different answers a survey question gets.","Cluster on high-cardinality filters; embeddings/hashing for high-cardinality ML features."],
+ ["Berapa banyak nilai berbeda di sebuah kolom. customer_id = cardinality tinggi; jenis kelamin = rendah.","Berapa banyak jawaban berbeda dari satu pertanyaan survei.","Cluster di filter dengan cardinality tinggi; embedding/hashing untuk fitur ML dengan cardinality tinggi."]);
+g("bytes","Bytes scanned / on-demand",["bytes scanned","bytes processed","bytes billed","on-demand"],"","Ops & Cost",
+ ["BigQuery on-demand pricing charges for the amount of data a query reads, not the rows it returns.","Paying for every shelf you walk past in the library.","LIMIT doesn't reduce it; fewer columns and partition filters do."],
+ ["Harga on-demand BigQuery menagih jumlah data yang dibaca query, bukan jumlah baris hasilnya.","Bayar untuk setiap rak perpustakaan yang kamu lewati.","LIMIT tidak menguranginya; sedikit kolom dan filter partisi yang mengurangi."]);
+g("slot","Slot",["slot","slots"],"","Ops & Cost",
+ ["A unit of BigQuery compute (CPU + memory). Queries use slots in parallel.","One worker on the warehouse floor.","Capacity pricing buys slots: reservations, baseline, autoscaling."],
+ ["Satu unit compute BigQuery (CPU + memori). Query memakai banyak slot secara paralel.","Satu pekerja di lantai gudang.","Harga kapasitas membeli slot: reservation, baseline, autoscaling."]);
+g("editions","BigQuery Editions / reservations",["BigQuery Editions","Editions","reservation","reservations","baseline","commitment","commitments","flat-rate"],"","Ops & Cost",
+ ["Capacity pricing: you reserve slots (Standard/Enterprise/Enterprise Plus), set a baseline plus autoscaling, optionally with 1/3-year commitments. Replaced flat-rate.","Renting a fixed team of workers, with temps on busy days.","Predictable spend, workload isolation (ETL vs BI)."],
+ ["Harga kapasitas: kamu memesan slot (Standard/Enterprise/Enterprise Plus), menentukan baseline + autoscaling, bisa dengan commitment 1/3 tahun. Pengganti flat-rate.","Menyewa tim pekerja tetap, ditambah pekerja harian saat ramai.","Biaya yang bisa diprediksi, isolasi workload (ETL vs BI)."]);
+g("timetravel","Time travel / fail-safe",["time travel","fail-safe","FOR SYSTEM_TIME AS OF"],"","Analytics",
+ ["BigQuery keeps a table's history for 2–7 days so you can query or restore it as of an earlier time; fail-safe adds 7 more days via Google support.","An undo button with a one-week memory.","Bad UPDATE/DELETE in the last few days → time travel."],
+ ["BigQuery menyimpan riwayat tabel 2–7 hari sehingga kamu bisa meng-query atau mengembalikannya ke kondisi sebelumnya; fail-safe menambah 7 hari lagi lewat Google support.","Tombol undo dengan ingatan seminggu.","UPDATE/DELETE salah dalam beberapa hari terakhir → time travel."]);
+g("snapshot","Snapshot / clone",["table snapshot","table snapshots","snapshot","snapshots","table clone","table clones","clone","clones"],"","Analytics",
+ ["Snapshot = cheap read-only point-in-time copy. Clone = cheap writable copy. Both only bill for data that changes. (Pub/Sub also has subscription snapshots for replay.)","A photo of the table (snapshot) vs a sandbox copy you can scribble on (clone).","Long-term backups → snapshot; test copy → clone."],
+ ["Snapshot = salinan read-only titik-waktu yang murah. Clone = salinan yang bisa diubah, juga murah. Keduanya hanya ditagih untuk data yang berubah. (Pub/Sub juga punya snapshot subscription untuk replay.)","Foto tabel (snapshot) vs salinan coret-coretan (clone).","Backup jangka panjang → snapshot; salinan untuk testing → clone."]);
+g("longterm","Long-term storage",["long-term storage"],"","Ops & Cost",
+ ["BigQuery automatically charges about half price for tables/partitions not modified for 90 days.","An automatic discount on boxes you haven't opened in 3 months.","Free storage saving; no action needed."],
+ ["BigQuery otomatis menagih sekitar setengah harga untuk tabel/partisi yang tidak diubah selama 90 hari.","Diskon otomatis untuk kardus yang tidak dibuka 3 bulan.","Hemat storage gratis; tidak perlu diatur."]);
+g("loadjob","Load job",["load job","load jobs","batch load","batch loads"],"","Analytics",
+ ["A BigQuery job that imports files (Avro, Parquet, CSV…) from GCS into a table in bulk. Free (uses a shared pool).","Unloading a truck at the warehouse in one go.","Daily file, no transform → load job, not Dataflow."],
+ ["Job BigQuery yang mengimpor file (Avro, Parquet, CSV…) dari GCS ke tabel sekaligus. Gratis (pakai pool bersama).","Membongkar satu truk di gudang sekaligus.","File harian tanpa transformasi → load job, bukan Dataflow."]);
+g("writeapi","Storage Write API",["Storage Write API","insertAll","streaming inserts"],"","Analytics",
+ ["The modern way to stream rows into BigQuery: cheaper than legacy insertAll and supports exactly-once.","A conveyor belt straight into the warehouse.","Duplicates/costs with streaming → switch to Storage Write API."],
+ ["Cara modern untuk streaming baris ke BigQuery: lebih murah dari insertAll lama dan mendukung exactly-once.","Ban berjalan langsung ke dalam gudang.","Duplikat/biaya tinggi saat streaming → pindah ke Storage Write API."]);
+g("avro","Avro",["Avro"],"","Storage",
+ ["A compact binary file format that embeds its schema and stores data in compressed blocks that can be read in parallel.","A sealed box with its packing list taped inside.","Fastest BigQuery load format."],
+ ["Format file biner yang ringkas, menyertakan schema-nya, dan menyimpan data dalam blok terkompresi yang bisa dibaca paralel.","Kardus tersegel dengan daftar isinya ditempel di dalam.","Format load tercepat untuk BigQuery."]);
+g("parquet","Parquet / ORC",["Parquet","ORC"],"","Storage",
+ ["Columnar file formats for analytics; reading one column doesn't require reading the others.","A notebook organised by column instead of by row.","Good for data lakes, BigLake, Spark and BigQuery loads."],
+ ["Format file kolumnar untuk analitik; membaca satu kolom tidak perlu membaca kolom lain.","Buku catatan yang disusun per kolom, bukan per baris.","Bagus untuk data lake, BigLake, Spark dan load BigQuery."]);
+g("iceberg","Apache Iceberg",["Iceberg","Apache Iceberg"],"","Storage",
+ ["An open table format that adds table features (schemas, snapshots, ACID) on top of Parquet files in object storage.","A catalogue card system for a pile of files.","BigLake supports Iceberg tables (lakehouse)."],
+ ["Format tabel terbuka yang menambahkan fitur tabel (schema, snapshot, ACID) di atas file Parquet di object storage.","Sistem kartu katalog untuk tumpukan file.","BigLake mendukung tabel Iceberg (lakehouse)."]);
+g("biglake","BigLake / BigQuery Omni",["BigLake","BigQuery Omni","Omni"],"","Analytics",
+ ["BigLake = governed tables over open-format files (row/column security). Omni = BigQuery running in AWS/Azure next to the data.","BigLake: library rules applied to a pile of files. Omni: a BigQuery branch office in another cloud.","Data must stay in S3/Azure → Omni; Iceberg lakehouse with security → BigLake."],
+ ["BigLake = tabel ber-governance di atas file berformat terbuka (security row/column). Omni = BigQuery yang berjalan di AWS/Azure dekat datanya.","BigLake: aturan perpustakaan diterapkan ke tumpukan file. Omni: kantor cabang BigQuery di cloud lain.","Data harus tetap di S3/Azure → Omni; lakehouse Iceberg dengan security → BigLake."]);
+g("datalake","Data lake / lakehouse",["data lake","data lakes","lakehouse","data swamp"],"","Storage",
+ ["A data lake stores raw files of any format cheaply (usually GCS). A lakehouse adds warehouse-like tables and governance on top.","A lake = a big storage room of boxes; lakehouse = that room with a proper catalogue and rules.","Govern a lake without moving data → Dataplex / BigLake."],
+ ["Data lake menyimpan file mentah format apa pun dengan murah (biasanya GCS). Lakehouse menambahkan tabel dan governance ala warehouse di atasnya.","Lake = gudang besar penuh kardus; lakehouse = gudang itu ditambah katalog dan aturan yang rapi.","Mengatur lake tanpa memindahkan data → Dataplex / BigLake."]);
+g("bigtable","Bigtable",["Bigtable"],"","Database",
+ ["Google's NoSQL wide-column database for TB–PB of data with single-digit-millisecond reads/writes by row key.","A giant phone book sorted by one key only.","IoT, time series, ad tech, high write throughput."],
+ ["Database NoSQL wide-column Google untuk data TB–PB dengan baca/tulis per row key dalam hitungan milidetik.","Buku telepon raksasa yang hanya diurutkan satu key.","IoT, time series, ad tech, throughput write tinggi."]);
+g("rowkey","Row key",["row key","row keys","rowkey"],"","Database",
+ ["The single key that identifies and sorts every row in Bigtable; the only index.","The name a phone book is sorted by.","Design it for the main query; never start with a timestamp."],
+ ["Satu-satunya key yang mengidentifikasi dan mengurutkan setiap baris di Bigtable; satu-satunya index.","Nama yang dipakai untuk mengurutkan buku telepon.","Desain sesuai query utama; jangan diawali timestamp."]);
+g("colfam","Column family",["column family","column families","wide-column"],"","Database",
+ ["A named group of columns in Bigtable that are stored and managed together (e.g. garbage-collection settings).","A labelled drawer holding related columns.","Group columns you read together."],
+ ["Kelompok kolom bernama di Bigtable yang disimpan dan dikelola bersama (misalnya setting garbage collection).","Laci berlabel berisi kolom-kolom yang terkait.","Kelompokkan kolom yang dibaca bersamaan."]);
+g("hotspot","Hotspot",["hotspot","hotspots","hotspotting"],"","Database",
+ ["When most reads/writes hit the same small key range, so one server is overloaded while others idle.","Everyone queuing at one toll gate while the others are empty.","Timestamp-first row keys / sequential primary keys cause hotspots; adding nodes doesn't fix them."],
+ ["Saat sebagian besar baca/tulis jatuh di range key kecil yang sama, sehingga satu server kewalahan sementara yang lain menganggur.","Semua mobil antre di satu gerbang tol sementara gerbang lain kosong.","Row key diawali timestamp / primary key berurutan menyebabkan hotspot; menambah node tidak menyelesaikannya."]);
+g("fieldpromo","Field promotion / salting",["field promotion","salting","salt"],"","Database",
+ ["Field promotion moves a field (e.g. device_id) to the front of the row key to spread writes. Salting adds a hash prefix; a fallback because it breaks range scans.","Sorting mail by street first, not by arrival time.","Fix Bigtable hotspots: field promotion first, salting only if needed."],
+ ["Field promotion memindahkan field (misalnya device_id) ke depan row key supaya write tersebar. Salting menambah prefix hash; hanya cadangan karena merusak range scan.","Menyortir surat berdasarkan nama jalan dulu, bukan waktu kedatangan.","Atasi hotspot Bigtable: field promotion dulu, salting hanya kalau perlu."]);
+g("reversets","Reverse timestamp",["reverse timestamp","reverse_timestamp","reverse_ts"],"","Database",
+ ["Storing (MAX − timestamp) in the row key so the newest rows sort first.","Putting today's newspaper on top of the stack.","\"Show the latest N readings\" → entity#reverse_timestamp."],
+ ["Menyimpan (MAX − timestamp) di row key supaya baris terbaru berada di urutan pertama.","Menaruh koran hari ini di tumpukan paling atas.","\"Tampilkan N data terbaru\" → entity#reverse_timestamp."]);
+g("tallnarrow","Tall & narrow table",["tall and narrow","tall & narrow","tall/narrow"],"","Database",
+ ["A Bigtable design with one row per event (many rows, few columns) instead of an ever-growing row.","A long receipt roll instead of one page with endless columns.","Recommended for time series."],
+ ["Desain Bigtable dengan satu baris per event (banyak baris, sedikit kolom), bukan satu baris yang terus memanjang.","Gulungan struk panjang, bukan satu halaman dengan kolom tak berujung.","Disarankan untuk time series."]);
+g("appprofile","App profile / routing",["app profile","app profiles","multi-cluster routing","single-cluster routing"],"","Database",
+ ["Bigtable settings that decide which cluster an app uses. Multi-cluster = automatic failover; single-cluster = isolate workloads.","A GPS telling each driver which branch to visit.","HA → multi-cluster; batch vs serving isolation → single-cluster per workload."],
+ ["Setting Bigtable yang menentukan cluster mana yang dipakai sebuah app. Multi-cluster = failover otomatis; single-cluster = memisahkan workload.","GPS yang memberi tahu setiap sopir cabang mana yang dituju.","HA → multi-cluster; pisahkan batch dan serving → single-cluster per workload."]);
+g("keyviz","Key Visualizer",["Key Visualizer"],"","Ops & Cost",
+ ["A Bigtable tool that draws a heatmap of reads/writes across the key space to reveal hotspots.","A thermal camera for your table.","Diagnose uneven Bigtable load."],
+ ["Tool Bigtable yang menggambar heatmap baca/tulis di seluruh rentang key untuk menemukan hotspot.","Kamera termal untuk tabelmu.","Mendiagnosis beban Bigtable yang tidak merata."]);
+g("ssdhdd","SSD vs HDD",["SSD","HDD","SSD/HDD"],"Solid-State Drive / Hard Disk Drive","Storage",
+ ["SSD = fast, more expensive storage. HDD = slower, cheaper. In Bigtable the choice can't be changed later.","Sports car vs delivery truck.","Bigtable HDD → SSD = new instance + copy data."],
+ ["SSD = storage cepat dan lebih mahal. HDD = lebih lambat dan lebih murah. Di Bigtable pilihannya tidak bisa diubah setelah dibuat.","Mobil sport vs truk barang.","Bigtable HDD → SSD = instance baru + copy data."]);
+g("compaction","Compaction / garbage collection",["compaction","garbage collection","garbage-collection"],"","Database",
+ ["Background clean-up in Bigtable that removes deleted/old versions according to rules (max versions, max age).","The cleaning crew that comes at night to empty bins.","Deletes temporarily increase storage until compaction runs."],
+ ["Pembersihan di latar belakang Bigtable yang menghapus versi lama/terhapus sesuai aturan (max versions, max age).","Petugas kebersihan yang datang malam untuk mengosongkan tempat sampah.","Delete sementara justru menambah storage sampai compaction berjalan."]);
+g("spanner","Spanner",["Spanner"],"","Database",
+ ["Google's globally distributed relational database with SQL, ACID and horizontal scaling.","A bank ledger that's correct in every country at the same moment.","Global + relational + strongly consistent + huge scale."],
+ ["Database relasional terdistribusi global milik Google dengan SQL, ACID dan horizontal scaling.","Buku besar bank yang benar di setiap negara pada saat yang sama.","Global + relasional + strongly consistent + skala besar."]);
+g("truetime","TrueTime",["TrueTime"],"","Database",
+ ["Google's globally synchronised clocks (atomic clocks + GPS) that let Spanner order transactions consistently worldwide.","Every branch office using the exact same atomic clock.","Explains Spanner's external consistency."],
+ ["Jam global milik Google yang tersinkronisasi (jam atom + GPS), sehingga Spanner bisa mengurutkan transaksi secara konsisten di seluruh dunia.","Semua kantor cabang memakai jam atom yang persis sama.","Menjelaskan external consistency di Spanner."]);
+g("interleave","Interleaved tables",["interleaved","interleave","interleaving"],"","Database",
+ ["A Spanner feature that stores child rows (line items) physically next to their parent row (order).","Stapling the receipt items to the order form.","Parent-child read together → interleave."],
+ ["Fitur Spanner yang menyimpan baris anak (line item) secara fisik di sebelah baris induknya (order).","Menstaples daftar barang ke formulir order.","Parent-child dibaca bersamaan → interleave."]);
+g("databoost","Data Boost",["Data Boost"],"","Database",
+ ["Spanner feature that runs analytics on separate on-demand compute so it doesn't slow down the transactional workload.","A separate kitchen for catering orders so the restaurant isn't slowed down.","Heavy analytics on Spanner without hurting OLTP."],
+ ["Fitur Spanner yang menjalankan analitik di compute on-demand terpisah supaya tidak memperlambat beban transaksi.","Dapur terpisah untuk pesanan katering supaya restoran tidak terganggu.","Analitik berat di Spanner tanpa mengganggu OLTP."]);
+g("cloudsql","Cloud SQL",["Cloud SQL"],"","Database",
+ ["Managed MySQL, PostgreSQL or SQL Server in one region.","Your usual database, but Google handles backups and patches.","Regional OLTP, lift-and-shift relational apps."],
+ ["MySQL, PostgreSQL atau SQL Server yang di-manage, di satu region.","Database yang biasa kamu pakai, tapi backup dan patch-nya diurus Google.","OLTP regional, lift-and-shift aplikasi relasional."]);
+g("alloydb","AlloyDB",["AlloyDB"],"","Database",
+ ["Google's high-performance PostgreSQL-compatible database with a columnar engine for analytics on live data.","PostgreSQL with a turbocharger.","Postgres + more speed + HTAP + minimal app changes."],
+ ["Database PostgreSQL-compatible berperforma tinggi milik Google, dengan columnar engine untuk analitik di data live.","PostgreSQL yang diberi turbo.","Postgres + lebih cepat + HTAP + perubahan app minimal."]);
+g("firestore","Firestore / Datastore",["Firestore","Datastore"],"","Database",
+ ["Serverless document database for web/mobile apps with offline sync. Older name/mode: Datastore.","A filing cabinet of JSON folders that syncs to your phone.","Mobile app + offline + flexible schema."],
+ ["Database dokumen serverless untuk app web/mobile dengan sinkronisasi offline. Nama/mode lama: Datastore.","Lemari arsip berisi map JSON yang tersinkron ke HP.","App mobile + offline + schema fleksibel."]);
+g("memorystore","Memorystore / Redis",["Memorystore","Redis","Valkey","Memcached"],"","Database",
+ ["Managed in-memory caches (Redis, Valkey, Memcached) with sub-millisecond latency.","Sticky notes on your monitor for things you check constantly.","Sessions, caching hot reads, leaderboards."],
+ ["Cache in-memory yang di-manage (Redis, Valkey, Memcached) dengan latency di bawah satu milidetik.","Sticky note di monitor untuk hal yang terus kamu cek.","Session, cache data yang sering dibaca, leaderboard."]);
+
+/* ---------- Streaming & processing ---------- */
+g("pubsub","Pub/Sub",["Pub/Sub"],"Publish/Subscribe","Streaming",
+ ["Google's global, serverless messaging service: publishers send messages to topics; subscriptions deliver them to consumers.","A post office: each subscription is its own delivery route.","Real-time ingestion and decoupling systems."],
+ ["Layanan messaging global dan serverless milik Google: publisher mengirim pesan ke topic; subscription mengantarkannya ke consumer.","Kantor pos: setiap subscription adalah jalur pengiriman tersendiri.","Ingestion real-time dan memisahkan antar sistem."]);
+g("topic","Topic / subscription",["topic","topics","subscription","subscriptions","subscriber","subscribers","publisher","publishers"],"","Streaming",
+ ["A topic is where messages are published; each subscription attached to it receives every message; subscribers read from a subscription.","Topic = mailbox; subscription = delivery route; subscriber = the person receiving.","Two apps needing all messages → two subscriptions."],
+ ["Topic adalah tempat pesan dipublish; setiap subscription di topic itu menerima semua pesan; subscriber membaca dari subscription.","Topic = kotak surat; subscription = jalur antar; subscriber = penerimanya.","Dua app yang butuh semua pesan → dua subscription."]);
+g("ack","Ack / ack deadline",["ack deadline","ack","acks","acked","unacked","acknowledge","acknowledged"],"Acknowledgement","Streaming",
+ ["The subscriber's signal that a message was processed. If no ack arrives before the deadline, Pub/Sub redelivers it.","Signing for a parcel; no signature, the courier comes back.","Many duplicates → acks arriving too late."],
+ ["Sinyal dari subscriber bahwa pesan sudah diproses. Kalau ack tidak datang sebelum deadline, Pub/Sub mengirim ulang.","Tanda tangan saat menerima paket; tanpa tanda tangan, kurirnya datang lagi.","Banyak duplikat → ack datang terlambat."]);
+g("delivery","At-least-once / exactly-once",["at-least-once","exactly-once","at least once","exactly once"],"","Streaming",
+ ["At-least-once: every message is delivered, sometimes more than once. Exactly-once: delivered/processed once with no duplicates.","At-least-once = the courier may deliver the same parcel twice to be safe.","Pub/Sub default = at-least-once; Dataflow = exactly-once processing."],
+ ["At-least-once: setiap pesan pasti terkirim, kadang lebih dari sekali. Exactly-once: dikirim/diproses tepat sekali tanpa duplikat.","At-least-once = kurir mungkin mengantar paket yang sama dua kali biar aman.","Default Pub/Sub = at-least-once; Dataflow = exactly-once processing."]);
+g("orderingkey","Ordering key",["ordering key","ordering keys"],"","Streaming",
+ ["A Pub/Sub label that guarantees messages with the same key are delivered in publish order.","One queue per customer, so their orders stay in sequence.","Per-customer ordering with high overall throughput."],
+ ["Label Pub/Sub yang menjamin pesan dengan key yang sama dikirim sesuai urutan publish.","Satu antrean per pelanggan, supaya pesanannya tetap berurutan.","Urutan per customer dengan throughput tetap tinggi."]);
+g("pushpull","Push vs pull",["push subscription","pull subscription"],"","Streaming",
+ ["Pull: the consumer asks for messages. Push: Pub/Sub sends each message to an HTTPS endpoint.","Pull = picking up mail at the post office; push = mail delivered to your door.","Cloud Run endpoint, no polling → push; Dataflow → pull."],
+ ["Pull: consumer yang meminta pesan. Push: Pub/Sub mengirim setiap pesan ke endpoint HTTPS.","Pull = mengambil surat di kantor pos; push = surat diantar ke rumah.","Endpoint Cloud Run tanpa polling → push; Dataflow → pull."]);
+g("deadletter","Dead-letter (DLQ)",["dead-letter","dead letter","DLQ","dead-letter topic"],"Dead-Letter Queue","Streaming",
+ ["A separate place where messages or records that keep failing are sent, so they don't block the rest.","A 'problem parcels' shelf at the post office.","Poison messages → dead-letter topic; bad records → dead-letter output."],
+ ["Tempat terpisah untuk pesan atau record yang terus gagal, supaya tidak memblokir yang lain.","Rak 'paket bermasalah' di kantor pos.","Pesan beracun → dead-letter topic; record rusak → dead-letter output."]);
+g("seek","Seek / replay",["seek","replay","replays"],"","Streaming",
+ ["Rewinding a Pub/Sub subscription to a snapshot or timestamp so messages are delivered again.","Rewinding a video to watch a scene again.","Reprocess after a buggy deploy."],
+ ["Memutar mundur subscription Pub/Sub ke snapshot atau timestamp supaya pesan dikirim ulang.","Memutar ulang video untuk menonton adegan yang sama.","Proses ulang setelah deploy yang bug."]);
+g("backlog","Backlog",["backlog","oldest_unacked_message_age","num_undelivered_messages"],"","Streaming",
+ ["Messages waiting to be processed. A growing backlog means consumers are too slow.","A growing pile of unread mail.","Alert on oldest unacked message age; scale the consumer."],
+ ["Pesan yang menunggu untuk diproses. Backlog yang terus naik berarti consumer terlalu lambat.","Tumpukan surat belum dibaca yang terus meninggi.","Alert di oldest unacked message age; scale consumer-nya."]);
+g("kafka","Kafka",["Kafka","Apache Kafka","Managed Kafka","Managed Service for Apache Kafka"],"","Streaming",
+ ["Apache Kafka is a popular open-source event streaming platform. Google offers Managed Service for Apache Kafka.","Another post-office brand many companies already use.","Existing Kafka apps, minimal changes → Managed Kafka; open to change → Pub/Sub."],
+ ["Apache Kafka adalah platform event streaming open-source yang populer. Google menyediakan Managed Service for Apache Kafka.","Merek kantor pos lain yang sudah dipakai banyak perusahaan.","App Kafka yang sudah ada, perubahan minimal → Managed Kafka; terbuka untuk berubah → Pub/Sub."]);
+g("streaming","Streaming vs batch",["streaming","batch","real-time","real time","near real time","near-real-time"],"","Processing",
+ ["Batch processes a finished chunk of data (e.g. yesterday's file). Streaming processes data continuously as it arrives.","Batch = doing laundry once a week; streaming = washing each dish right after use.","Same logic for both → Dataflow (Beam)."],
+ ["Batch memproses potongan data yang sudah lengkap (misalnya file kemarin). Streaming memproses data terus-menerus saat datang.","Batch = mencuci baju seminggu sekali; streaming = mencuci piring langsung setelah dipakai.","Logika yang sama untuk keduanya → Dataflow (Beam)."]);
+g("etl","ETL / ELT",["ETL","ELT"],"Extract, Transform, Load / Extract, Load, Transform","Processing",
+ ["ETL transforms data before loading it into the warehouse; ELT loads raw data first and transforms it inside (e.g. with SQL in BigQuery).","ETL = cooking before putting food in the fridge; ELT = storing ingredients, cooking later in the kitchen.","Data already in BigQuery → ELT with SQL/Dataform."],
+ ["ETL mentransformasi data sebelum dimuat ke warehouse; ELT memuat data mentah dulu lalu mentransformasinya di dalam (misalnya pakai SQL di BigQuery).","ETL = masak dulu baru masuk kulkas; ELT = simpan bahan mentah, masak nanti di dapur.","Data sudah di BigQuery → ELT dengan SQL/Dataform."]);
+g("pipeline","Pipeline",["pipeline","pipelines"],"","Processing",
+ ["A chain of steps that moves and transforms data from sources to destinations.","An assembly line in a factory.","Every design question describes a pipeline."],
+ ["Rangkaian langkah yang memindahkan dan mentransformasi data dari sumber ke tujuan.","Jalur perakitan di pabrik.","Setiap soal desain menggambarkan sebuah pipeline."]);
+g("dataflow","Dataflow",["Dataflow"],"","Processing",
+ ["Google's serverless service that runs Apache Beam pipelines for batch and streaming, with autoscaling.","A self-managing factory that hires and sends home workers as needed.","New serverless batch+streaming pipelines."],
+ ["Layanan serverless Google yang menjalankan pipeline Apache Beam untuk batch dan streaming, dengan autoscaling.","Pabrik yang mengatur dirinya sendiri, menambah dan memulangkan pekerja sesuai kebutuhan.","Pipeline baru batch+streaming yang serverless."]);
+g("beam","Apache Beam",["Beam","Apache Beam"],"","Processing",
+ ["An open-source programming model for data pipelines; the same code runs on Dataflow, Flink or Spark.","A recipe that works in any kitchen.","Portable pipelines; Dataflow's language."],
+ ["Model pemrograman open-source untuk pipeline data; kode yang sama bisa jalan di Dataflow, Flink atau Spark.","Resep yang bisa dimasak di dapur mana pun.","Pipeline yang portable; bahasa milik Dataflow."]);
+g("pcollection","PCollection / PTransform",["PCollection","PCollections","PTransform","ParDo","DoFn","GroupByKey","CoGroupByKey","Combine","Flatten"],"","Processing",
+ ["Beam's building blocks: a PCollection is a distributed dataset; transforms like ParDo (per element), GroupByKey, Combine (aggregate), CoGroupByKey (join) and Flatten (merge) process it.","Ingredients (PCollection) and cooking steps (transforms).","Join → CoGroupByKey; efficient sums → Combine."],
+ ["Blok dasar Beam: PCollection adalah dataset terdistribusi; transform seperti ParDo (per elemen), GroupByKey, Combine (agregasi), CoGroupByKey (join) dan Flatten (gabung) memprosesnya.","Bahan (PCollection) dan langkah memasak (transform).","Join → CoGroupByKey; sum yang efisien → Combine."]);
+g("sideinput","Side input",["side input","side inputs"],"","Processing",
+ ["A small extra dataset (e.g. a lookup table) broadcast to every Beam worker.","A cheat sheet handed to every cashier.","Enrich events with a small reference table."],
+ ["Dataset tambahan yang kecil (misalnya tabel lookup) yang dibagikan ke setiap worker Beam.","Contekan yang dibagikan ke setiap kasir.","Enrich event dengan tabel referensi kecil."]);
+g("eventtime","Event time vs processing time",["event time","event-time","processing time","processing-time"],"","Streaming",
+ ["Event time = when something happened (timestamp in the data). Processing time = when the pipeline saw it.","Photo taken Monday in Bali (event) vs uploaded Friday in Jakarta (processing).","Correct analytics with delayed data → window on event time."],
+ ["Event time = kapan kejadiannya (timestamp di data). Processing time = kapan pipeline melihatnya.","Foto diambil Senin di Bali (event) vs di-upload Jumat di Jakarta (processing).","Analitik yang benar dengan data telat → window berdasarkan event time."]);
+g("watermark","Watermark",["watermark","watermarks"],"","Streaming",
+ ["Dataflow's running estimate that all events up to time T have probably arrived. Windows emit when it passes their end.","The teacher's guess that all homework has been handed in.","Late data = data behind the watermark."],
+ ["Perkiraan Dataflow bahwa semua event sampai waktu T kemungkinan sudah tiba. Window mengeluarkan hasil saat watermark melewati ujungnya.","Tebakan guru bahwa semua PR sudah dikumpulkan.","Data telat = data yang datang setelah watermark lewat."]);
+g("window","Window (fixed / sliding / session)",["fixed window","fixed windows","sliding window","sliding windows","session window","session windows","windowing","tumbling","hopping","window","windows"],"","Streaming",
+ ["A time bucket for grouping streaming data. Fixed = equal non-overlapping; sliding = overlapping (moving averages); session = per key until a gap of inactivity; global = one window forever.","Fixed = hourly shifts; sliding = 'last 60 minutes' updated every 5; session = a customer's visit until they leave.","Exam phrases map directly to window types."],
+ ["Ember waktu untuk mengelompokkan data streaming. Fixed = sama besar dan tidak tumpang tindih; sliding = tumpang tindih (moving average); session = per key sampai ada jeda tanpa aktivitas; global = satu window selamanya.","Fixed = shift per jam; sliding = '60 menit terakhir' diperbarui tiap 5 menit; session = satu kunjungan pelanggan sampai dia pergi.","Frasa di soal langsung menunjuk jenis window."]);
+g("trigger","Trigger",["trigger","triggers","early trigger","AfterWatermark","AfterProcessingTime","AfterCount"],"","Streaming",
+ ["Decides when a window outputs results: at the watermark, early (processing time), after a count, or combinations.","When the scoreboard updates: every minute, or at the final whistle.","Early estimates + final result → early processing-time trigger + watermark trigger."],
+ ["Menentukan kapan window mengeluarkan hasil: saat watermark, lebih awal (processing time), setelah sejumlah elemen, atau kombinasinya.","Kapan papan skor diperbarui: tiap menit, atau saat peluit akhir.","Angka sementara + hasil akhir → early trigger processing time + trigger watermark."]);
+g("lateness","Allowed lateness",["allowed lateness","late data","late-arriving","late events"],"","Streaming",
+ ["How long after the watermark a window still accepts late data. Default 0, so late data is dropped.","A grace period for late homework.","\"Late events are missing\" → raise allowed lateness."],
+ ["Berapa lama setelah watermark sebuah window masih menerima data telat. Default 0, jadi data telat dibuang.","Masa toleransi untuk PR yang terlambat.","\"Event telat hilang\" → naikkan allowed lateness."]);
+g("accum","Accumulating vs discarding",["accumulating","discarding"],"","Streaming",
+ ["Accumulating: each window firing re-emits the full updated total. Discarding: each firing emits only the new part.","Accumulating = announcing the running score; discarding = announcing only the new goals.","Corrected totals on dashboards → accumulating."],
+ ["Accumulating: setiap kali window mengeluarkan hasil, total lengkap terbaru dikirim ulang. Discarding: hanya bagian barunya.","Accumulating = mengumumkan skor total; discarding = hanya mengumumkan gol baru.","Total yang dikoreksi di dashboard → accumulating."]);
+g("drain","Drain / Cancel / Update",["drain","drained","draining","Drain"],"","Processing",
+ ["Ways to change a running Dataflow job. Update swaps code and keeps state (compatible changes). Drain stops reading and finishes in-flight data. Cancel stops at once and loses in-flight data.","Drain = let the factory finish the items on the belt before closing.","No data loss → drain (incompatible) or update (compatible)."],
+ ["Cara mengubah job Dataflow yang sedang jalan. Update mengganti kode dan mempertahankan state (perubahan kompatibel). Drain berhenti membaca dan menyelesaikan data in-flight. Cancel langsung berhenti dan data in-flight hilang.","Drain = biarkan pabrik menyelesaikan barang di ban berjalan sebelum tutup.","Tanpa kehilangan data → drain (tidak kompatibel) atau update (kompatibel)."]);
+g("inflight","In-flight data",["in-flight","in flight"],"","Processing",
+ ["Data that a pipeline has read but not finished processing or writing yet.","Parcels already loaded on the truck but not delivered.","Cancel loses in-flight data; drain doesn't."],
+ ["Data yang sudah dibaca pipeline tapi belum selesai diproses atau ditulis.","Paket yang sudah naik truk tapi belum diantar.","Cancel menghilangkan data in-flight; drain tidak."]);
+g("state","State (streaming)",["stateful"],"","Processing",
+ ["What a streaming pipeline remembers between elements: partial window totals, buffers, timers.","The running tally on a cashier's notepad.","--update keeps state; a new job starts with empty state."],
+ ["Yang diingat pipeline streaming di antara elemen: total window sementara, buffer, timer.","Hitungan berjalan di catatan kasir.","--update mempertahankan state; job baru mulai dengan state kosong."]);
+g("hotkey","Hot key",["hot key","hot keys","withHotKeyFanout","fanout"],"","Processing",
+ ["One key with far more data than others, so one worker gets overloaded during grouping.","One checkout lane for the most popular product.","Fix with Combine + withHotKeyFanout, not more workers."],
+ ["Satu key dengan data jauh lebih banyak dari yang lain, sehingga satu worker kewalahan saat grouping.","Satu jalur kasir khusus untuk produk paling laris.","Atasi dengan Combine + withHotKeyFanout, bukan menambah worker."]);
+g("shuffle","Shuffle",["shuffle","shuffled","shuffles"],"","Processing",
+ ["Moving data between workers so records with the same key end up together (needed for grouping/joins). Expensive.","Redistributing exam papers so each teacher gets their subject.","Combine reduces shuffle; skew makes shuffle uneven."],
+ ["Memindahkan data antar worker supaya record dengan key yang sama berkumpul (dibutuhkan untuk grouping/join). Mahal.","Membagi ulang kertas ujian supaya setiap guru menerima mata pelajarannya.","Combine mengurangi shuffle; skew membuat shuffle tidak merata."]);
+g("skew","Skew",["skew","skewed","data skew"],"","Analytics",
+ ["Data unevenly spread across keys, so one worker/stage does most of the work.","One cashier with 90% of the customers.","Uneven join stage in BigQuery or Dataflow."],
+ ["Data yang tidak merata di antara key, sehingga satu worker/stage mengerjakan sebagian besar pekerjaan.","Satu kasir menangani 90% pelanggan.","Stage join yang tidak merata di BigQuery atau Dataflow."]);
+g("systemlag","System lag / data freshness",["system lag","data freshness"],"","Ops & Cost",
+ ["Dataflow metrics showing how far behind real time a streaming job is.","How late the train is running.","Alert on these to catch a falling-behind pipeline."],
+ ["Metrik Dataflow yang menunjukkan seberapa jauh job streaming tertinggal dari waktu nyata.","Seberapa terlambat kereta berjalan.","Pasang alert di sini untuk menangkap pipeline yang tertinggal."]);
+g("template","Flex Template",["Flex Template","Flex Templates","template","templates"],"","Processing",
+ ["A packaged Dataflow pipeline (container) that others can launch with parameters, without code or build tools.","A ready-made cake mix: just add the parameters.","Non-developers launch pipelines → Flex Template."],
+ ["Pipeline Dataflow yang dikemas (container) sehingga orang lain bisa menjalankannya dengan parameter, tanpa kode atau build tool.","Tepung kue instan: tinggal tambah parameter.","Non-developer menjalankan pipeline → Flex Template."]);
+g("flexrs","FlexRS",["FlexRS"],"Flexible Resource Scheduling","Ops & Cost",
+ ["A cheaper way to run Dataflow batch jobs that can wait a bit before starting.","A cheaper flight if you don't mind a flexible departure time.","Non-urgent batch, lower cost."],
+ ["Cara lebih murah menjalankan job batch Dataflow yang boleh menunggu sebelum mulai.","Tiket pesawat lebih murah kalau jam berangkatnya fleksibel.","Batch yang tidak mendesak, biaya lebih rendah."]);
+g("streamingengine","Streaming Engine",["Streaming Engine","Dataflow Shuffle","Dataflow Prime"],"","Processing",
+ ["Dataflow backend services that move state/shuffle off the workers for smoother autoscaling.","Moving the warehouse out of the factory floor so machines have room.","Improves streaming job scaling and efficiency."],
+ ["Layanan backend Dataflow yang memindahkan state/shuffle keluar dari worker supaya autoscaling lebih mulus.","Memindahkan gudang keluar dari lantai pabrik supaya mesin punya ruang.","Meningkatkan scaling dan efisiensi job streaming."]);
+g("dataproc","Dataproc",["Dataproc"],"","Processing",
+ ["Google's managed Spark and Hadoop clusters, quick to create and billed per second.","Renting a car per trip instead of owning one.","Existing Spark/Hadoop with minimal changes."],
+ ["Cluster Spark dan Hadoop yang di-manage Google, cepat dibuat dan ditagih per detik.","Menyewa mobil per perjalanan, bukan membeli.","Spark/Hadoop yang sudah ada dengan perubahan minimal."]);
+g("hadoop","Hadoop / Spark / Hive",["Hadoop","Spark","Hive","Pig","PySpark","MapReduce","Flink"],"","Processing",
+ ["Open-source big-data engines: Hadoop (storage + MapReduce), Spark (fast in-memory processing), Hive (SQL on Hadoop), Flink (streaming).","Older and newer generations of factory machinery.","Lift & shift → Dataproc; modernise → BigQuery/Dataflow."],
+ ["Engine big data open-source: Hadoop (storage + MapReduce), Spark (pemrosesan in-memory yang cepat), Hive (SQL di atas Hadoop), Flink (streaming).","Mesin pabrik generasi lama dan baru.","Lift & shift → Dataproc; modernisasi → BigQuery/Dataflow."]);
+g("hdfs","HDFS",["HDFS"],"Hadoop Distributed File System","Processing",
+ ["The file system inside a Hadoop cluster's disks; it disappears when the cluster is deleted.","Luggage kept in the rental car's boot.","Use GCS (gs://) instead so clusters can be ephemeral."],
+ ["File system di dalam disk cluster Hadoop; ikut hilang saat cluster dihapus.","Barang yang disimpan di bagasi mobil sewaan.","Pakai GCS (gs://) supaya cluster bisa ephemeral."]);
+g("yarn","YARN",["YARN"],"Yet Another Resource Negotiator","Processing",
+ ["Hadoop's resource manager that schedules jobs on cluster machines.","The shift supervisor assigning workers to tasks.","Its UI is reachable via Dataproc Component Gateway."],
+ ["Resource manager Hadoop yang menjadwalkan job di mesin cluster.","Supervisor shift yang membagi tugas ke pekerja.","UI-nya bisa diakses lewat Dataproc Component Gateway."]);
+g("ephemeral","Ephemeral cluster",["ephemeral","job-scoped","ephemeral cluster","ephemeral clusters","persistent cluster"],"","Ops & Cost",
+ ["A cluster created for one job and deleted afterwards (vs a persistent always-on cluster).","Renting a hall only for the wedding day.","Cut Dataproc cost → ephemeral clusters + data in GCS."],
+ ["Cluster yang dibuat untuk satu job lalu dihapus setelahnya (vs cluster persistent yang selalu menyala).","Menyewa gedung hanya untuk hari pernikahan.","Hemat biaya Dataproc → ephemeral cluster + data di GCS."]);
+g("spot","Spot / preemptible VMs",["Spot","Spot VMs","preemptible","secondary workers","secondary worker"],"","Ops & Cost",
+ ["Much cheaper VMs that Google can take back at any time. Safe for compute-only Dataproc secondary workers.","Standby airline seats: cheap, but you may be bumped.","Never for masters or primary workers holding HDFS."],
+ ["VM yang jauh lebih murah tapi bisa diambil kembali Google kapan saja. Aman untuk secondary worker Dataproc yang hanya compute.","Kursi pesawat standby: murah, tapi bisa digeser.","Jangan untuk master atau primary worker yang menyimpan HDFS."]);
+g("initaction","Initialization action",["initialization action","initialization actions","init actions"],"","Processing",
+ ["A script that runs on every Dataproc node when the cluster is created, e.g. to install libraries.","A checklist every new employee follows on day one.","Install a library on all nodes → initialization actions."],
+ ["Script yang dijalankan di setiap node Dataproc saat cluster dibuat, misalnya untuk menginstal library.","Checklist yang diikuti setiap karyawan baru di hari pertama.","Instal library di semua node → initialization action."]);
+g("datafusion","Data Fusion / Dataprep / Dataform",["Data Fusion","Cloud Data Fusion","Dataprep","Dataform","SQLX"],"","Processing",
+ ["Data Fusion = visual no-code ETL (runs on Dataproc). Dataprep = visual data cleaning. Dataform = SQL (SQLX) transformations in BigQuery with dependencies, tests and git.","Drag-and-drop LEGO (Fusion), spreadsheet-like cleaning (Dataprep), version-controlled SQL recipes (Dataform).","No-code → Data Fusion; SQL ELT with tests → Dataform."],
+ ["Data Fusion = ETL visual tanpa coding (jalan di Dataproc). Dataprep = membersihkan data secara visual. Dataform = transformasi SQL (SQLX) di BigQuery dengan dependency, test dan git.","LEGO drag-and-drop (Fusion), membersihkan data ala spreadsheet (Dataprep), resep SQL dengan version control (Dataform).","Tanpa coding → Data Fusion; ELT SQL dengan test → Dataform."]);
+g("assertion","Assertion (data test)",["assertion","assertions"],"","Processing",
+ ["An automatic check that fails the pipeline when data breaks a rule (no nulls, unique IDs, positive totals).","A quality inspector stopping the line when a product is faulty.","Dataform assertions or Dataplex data quality scans."],
+ ["Pengecekan otomatis yang menggagalkan pipeline kalau data melanggar aturan (tidak null, ID unik, total positif).","Petugas QC yang menghentikan lini produksi kalau ada produk cacat.","Dataform assertion atau Dataplex data quality scan."]);
+g("cdc","CDC",["CDC","change data capture"],"Change Data Capture","Migration",
+ ["Capturing every insert, update and delete from a database as it happens and sending it elsewhere.","A CCTV on your database recording every change.","Near-real-time database → BigQuery replication → Datastream."],
+ ["Menangkap setiap insert, update dan delete dari database saat terjadi lalu mengirimkannya ke tempat lain.","CCTV untuk database yang merekam setiap perubahan.","Replikasi database → BigQuery hampir real-time → Datastream."]);
+g("datastream","Datastream",["Datastream"],"","Migration",
+ ["Google's serverless CDC service from MySQL, PostgreSQL, Oracle, SQL Server into BigQuery or GCS.","A live courier copying every change to the warehouse.","\"Keep BigQuery within minutes of the source DB\"."],
+ ["Layanan CDC serverless Google dari MySQL, PostgreSQL, Oracle, SQL Server ke BigQuery atau GCS.","Kurir langsung yang menyalin setiap perubahan ke gudang.","\"BigQuery tertinggal beberapa menit saja dari DB sumber\"."]);
+g("dms","DMS",["DMS","Database Migration Service"],"Database Migration Service","Migration",
+ ["Google's service for migrating MySQL/PostgreSQL/SQL Server/Oracle databases into Cloud SQL or AlloyDB with minimal downtime.","Moving house while still living in it, then switching keys at the end.","Database → Cloud SQL with little downtime."],
+ ["Layanan Google untuk migrasi database MySQL/PostgreSQL/SQL Server/Oracle ke Cloud SQL atau AlloyDB dengan downtime minimal.","Pindah rumah sambil tetap tinggal, lalu tukar kunci di akhir.","Database → Cloud SQL dengan downtime kecil."]);
+g("dts","BigQuery DTS",["DTS","BigQuery Data Transfer Service","Data Transfer Service"],"BigQuery Data Transfer Service","Migration",
+ ["Scheduled, managed loads into BigQuery from SaaS (Google Ads, YouTube), S3, and warehouse migrations (Teradata, Redshift).","A subscription delivery straight into the warehouse.","Teradata/Redshift → BigQuery; recurring SaaS loads."],
+ ["Load terjadwal dan managed ke BigQuery dari SaaS (Google Ads, YouTube), S3, dan migrasi warehouse (Teradata, Redshift).","Pengiriman langganan langsung ke gudang.","Teradata/Redshift → BigQuery; load SaaS berulang."]);
+g("sts","Storage Transfer Service / Transfer Appliance",["STS","Storage Transfer Service","Transfer Appliance"],"","Migration",
+ ["STS = managed, scheduled online copies into GCS (from S3, Azure, HTTP, on-prem). Transfer Appliance = a physical device you fill and ship for huge datasets.","STS = a moving company over the road; Appliance = a shipping container.","Huge data + slow network → Appliance; otherwise STS."],
+ ["STS = copy online yang managed dan terjadwal ke GCS (dari S3, Azure, HTTP, on-prem). Transfer Appliance = perangkat fisik yang diisi lalu dikirim untuk data raksasa.","STS = jasa pindahan lewat jalan; Appliance = kontainer kapal.","Data raksasa + jaringan lambat → Appliance; selain itu STS."]);
+g("teradata","Teradata / Redshift / Netezza",["Teradata","Redshift","Netezza"],"","Migration",
+ ["Traditional/other-cloud data warehouses companies migrate away from.","Older warehouses being emptied into a new one.","Migration target → BigQuery via DTS."],
+ ["Data warehouse lama / milik cloud lain yang sering dimigrasikan.","Gudang lama yang dikosongkan ke gudang baru.","Tujuan migrasi → BigQuery lewat DTS."]);
+g("composer","Cloud Composer / Airflow",["Cloud Composer","Composer","Airflow","Apache Airflow"],"","Processing",
+ ["Composer is Google's managed Apache Airflow for orchestrating multi-step pipelines (DAGs) with dependencies, retries and backfills.","The conductor of an orchestra telling each section when to play.","Complex scheduled DAGs across services."],
+ ["Composer adalah Apache Airflow yang di-manage Google untuk mengorkestrasi pipeline multi-langkah (DAG) dengan dependency, retry dan backfill.","Dirigen orkestra yang memberi aba-aba kapan tiap bagian bermain.","DAG terjadwal yang kompleks lintas service."]);
+g("dag","DAG",["DAG","DAGs"],"Directed Acyclic Graph","Processing",
+ ["A set of tasks with arrows showing which must run before which, with no loops. Airflow pipelines are DAGs.","A recipe: chop before frying, fry before serving, never back.","Composer DAG files live in the environment's GCS dags/ folder."],
+ ["Kumpulan task dengan panah yang menunjukkan urutan jalannya, tanpa putaran balik. Pipeline Airflow berbentuk DAG.","Resep: potong dulu baru goreng, goreng dulu baru sajikan, tidak pernah mundur.","File DAG Composer ada di folder dags/ di bucket GCS environment-nya."]);
+g("operator","Operator / sensor",["operator","operators","sensor","sensors"],"","Processing",
+ ["In Airflow, an operator is a task type (run a BigQuery job, start Dataflow). A sensor waits until a condition is true (e.g. a file exists).","Operator = a worker doing a job; sensor = a guard waiting at the gate.","Wait for a partner's file → GCS sensor."],
+ ["Di Airflow, operator adalah jenis task (menjalankan job BigQuery, memulai Dataflow). Sensor menunggu sampai sebuah kondisi terpenuhi (misalnya file sudah ada).","Operator = pekerja yang menjalankan tugas; sensor = satpam yang menunggu di gerbang.","Menunggu file dari partner → GCS sensor."]);
+g("backfill","Backfill / catchup",["backfill","backfills","catchup"],"","Processing",
+ ["Re-running a pipeline for past dates (e.g. after fixing a bug).","Doing missed homework for previous weeks.","Needs idempotent, date-parameterised tasks."],
+ ["Menjalankan ulang pipeline untuk tanggal-tanggal lampau (misalnya setelah bug diperbaiki).","Mengerjakan PR minggu-minggu sebelumnya yang terlewat.","Butuh task yang idempotent dan berparameter tanggal."]);
+g("workflows","Workflows / Scheduler / Eventarc",["Workflows","Cloud Scheduler","Scheduler","Eventarc"],"","Processing",
+ ["Workflows = serverless chains of API calls (YAML). Cloud Scheduler = cron. Eventarc = trigger on events (e.g. file landed).","Workflows = a to-do checklist; Scheduler = an alarm clock; Eventarc = a doorbell.","Light API chain → Workflows; file-arrival trigger → Eventarc."],
+ ["Workflows = rangkaian pemanggilan API serverless (YAML). Cloud Scheduler = cron. Eventarc = pemicu berbasis event (misalnya file masuk).","Workflows = checklist tugas; Scheduler = alarm; Eventarc = bel pintu.","Rangkaian API ringan → Workflows; pemicu file datang → Eventarc."]);
+g("cron","Cron",["cron"],"","Processing",
+ ["A schedule format for running something at fixed times (\"every day at 02:00\").","An alarm clock for programs.","One job on a schedule → Cloud Scheduler / scheduled query."],
+ ["Format jadwal untuk menjalankan sesuatu di waktu tetap (\"setiap hari jam 02:00\").","Alarm untuk program.","Satu job terjadwal → Cloud Scheduler / scheduled query."]);
+g("cloudrun","Cloud Run / functions",["Cloud Run","Cloud Run functions","Cloud Functions"],"","Processing",
+ ["Serverless platforms to run containers or small functions that scale to zero and react to HTTP requests or events.","A food truck that appears only when customers show up.","Event-driven small logic; push subscription endpoints."],
+ ["Platform serverless untuk menjalankan container atau fungsi kecil yang bisa scale ke nol dan bereaksi pada request HTTP atau event.","Food truck yang hanya muncul saat ada pembeli.","Logika kecil berbasis event; endpoint push subscription."]);
+g("cicd","CI/CD",["CI/CD","Cloud Build","Artifact Registry","Terraform"],"Continuous Integration / Continuous Delivery","Ops & Cost",
+ ["Automatically testing and deploying code on every change. On GCP: Cloud Build (build/test), Artifact Registry (images), Terraform (infrastructure as code).","An automated assembly-and-inspection line for code.","Promote the same artifact dev → test → prod."],
+ ["Menguji dan men-deploy kode secara otomatis di setiap perubahan. Di GCP: Cloud Build (build/test), Artifact Registry (image), Terraform (infrastruktur sebagai kode).","Jalur perakitan dan inspeksi otomatis untuk kode.","Promosikan artifact yang sama dev → test → prod."]);
+g("container","Container",["container","containers","Docker"],"","General",
+ ["A packaged app with everything it needs to run anywhere the same way.","A shipping container that fits on any ship or truck.","Flex Templates and Cloud Run use containers."],
+ ["Aplikasi yang dikemas bersama semua kebutuhannya supaya bisa jalan di mana saja dengan cara yang sama.","Peti kemas yang muat di kapal atau truk mana pun.","Flex Template dan Cloud Run memakai container."]);
+})();
+
+(function(){
+const g=(id,term,aliases,full,cat,en,idv)=>PDE.glossary.push({id,term,aliases,full,cat,txt:{en:{def:en[0],analogy:en[1],exam:en[2]},id:{def:idv[0],analogy:idv[1],exam:idv[2]}}});
+
+/* ---------- Security & governance ---------- */
+g("iam","IAM",["IAM"],"Identity and Access Management","Security",
+ ["The system that controls who (principal) can do what (role) on which resource.","The building's keycard system.","Predefined roles, to groups or service accounts, smallest scope."],
+ ["Sistem yang mengatur siapa (principal) boleh melakukan apa (role) di resource mana.","Sistem kartu akses gedung.","Predefined role, ke group atau service account, cakupan terkecil."]);
+g("role","Role (basic / predefined / custom)",["predefined role","predefined roles","basic role","basic roles","custom role","custom roles","role","roles"],"","Security",
+ ["A bundle of permissions. Basic (Owner/Editor/Viewer) = too broad; predefined = Google's task-specific roles; custom = your own set.","A job title that comes with certain keys.","Basic roles are almost never the right answer."],
+ ["Kumpulan izin. Basic (Owner/Editor/Viewer) = terlalu luas; predefined = role khusus tugas dari Google; custom = buatan sendiri.","Jabatan yang otomatis membawa kunci-kunci tertentu.","Basic role hampir tidak pernah jadi jawaban yang benar."]);
+g("principal","Principal / group",["principal","principals","Google Group","Google Groups"],"","Security",
+ ["Who receives access: a Google account (person), a Google Group (team), or a service account (app).","The person, the team, or the robot holding the keycard.","Grant to groups, not individuals."],
+ ["Pihak yang diberi akses: akun Google (orang), Google Group (tim), atau service account (aplikasi).","Orang, tim, atau robot yang memegang kartu akses.","Berikan ke group, bukan ke orang per orang."]);
+g("sa","Service account",["service account","service accounts","SA"],"","Security",
+ ["An identity for an application or pipeline (not a person) to call Google APIs.","An employee badge for a robot.","One SA per pipeline, least privilege; \"permission denied\" → check the job's SA."],
+ ["Identitas untuk aplikasi atau pipeline (bukan orang) untuk memanggil API Google.","Kartu karyawan untuk robot.","Satu SA per pipeline, least privilege; \"permission denied\" → cek SA milik job."]);
+g("leastpriv","Least privilege",["least privilege","least-privilege"],"","Security",
+ ["Give each person or app only the minimum access they need, at the smallest scope.","Giving the cleaner a key to the corridor, not to the safe.","Always prefer the narrowest predefined role."],
+ ["Beri setiap orang atau app hanya akses minimum yang dibutuhkan, di cakupan terkecil.","Petugas kebersihan diberi kunci lorong, bukan kunci brankas.","Selalu pilih predefined role yang paling sempit."]);
+g("wif","Workload Identity Federation",["Workload Identity Federation","OIDC"],"","Security",
+ ["Lets external workloads (GitHub Actions, AWS) use short-lived Google credentials without downloaded keys.","A visitor pass issued at reception each time, instead of a copied key.","\"No long-lived service account keys\" → WIF."],
+ ["Memungkinkan workload eksternal (GitHub Actions, AWS) memakai kredensial Google berumur pendek tanpa file key yang diunduh.","Kartu tamu yang dibuat di resepsionis setiap datang, bukan kunci duplikat.","\"Tanpa key service account berumur panjang\" → WIF."]);
+g("orgpolicy","Organization policy",["organization policy","organization policies","org policy","org policies","resourceLocations","resource locations"],"","Security",
+ ["Company-wide guardrails (e.g. only allow EU regions, block public IPs) that apply to every project.","House rules that apply in every room.","Data residency → resource locations org policy."],
+ ["Pagar pembatas tingkat perusahaan (misalnya hanya boleh region EU, larang public IP) yang berlaku di setiap project.","Aturan rumah yang berlaku di semua kamar.","Data residency → org policy resource locations."]);
+g("residency","Data residency",["data residency","residency"],"","Security",
+ ["Legal requirement that data stays in a specific country or region.","Documents that may not leave the country.","Regional resources + resource locations org policy."],
+ ["Aturan hukum bahwa data harus tetap berada di negara atau region tertentu.","Dokumen yang tidak boleh dibawa ke luar negeri.","Resource regional + org policy resource locations."]);
+g("encryption","Encryption at rest / in transit",["encryption","encrypted","at rest","in transit","encrypt"],"","Security",
+ ["Scrambling data so only key holders can read it. At rest = stored data; in transit = data moving over the network. GCP does both by default.","A locked safe (at rest) and an armoured truck (in transit).","The question is who controls the key: Google, CMEK, EKM, CSEK."],
+ ["Mengacak data supaya hanya pemegang kunci yang bisa membacanya. At rest = data yang disimpan; in transit = data yang sedang bergerak di jaringan. GCP melakukan keduanya secara default.","Brankas terkunci (at rest) dan mobil lapis baja (in transit).","Pertanyaannya: siapa yang memegang kunci: Google, CMEK, EKM, CSEK."]);
+g("kms","Cloud KMS",["KMS","Cloud KMS"],"Key Management Service","Security",
+ ["Google's service for creating, rotating and controlling encryption keys.","A key cabinet with a logbook.","CMEK keys live in Cloud KMS."],
+ ["Layanan Google untuk membuat, merotasi dan mengontrol kunci enkripsi.","Lemari kunci lengkap dengan buku catatannya.","Kunci CMEK disimpan di Cloud KMS."]);
+g("cmek","CMEK",["CMEK"],"Customer-Managed Encryption Keys","Security",
+ ["Google encrypts your data with a key you control in Cloud KMS: you set rotation and can disable or destroy it.","Your own padlock on a rented locker.","\"Control/rotate/revoke keys\" → CMEK; destroying the key = crypto-shredding."],
+ ["Google mengenkripsi datamu dengan kunci yang kamu kontrol di Cloud KMS: kamu atur rotasinya dan bisa menonaktifkan atau menghancurkannya.","Gembok milikmu sendiri di loker sewaan.","\"Kontrol/rotasi/cabut kunci\" → CMEK; menghancurkan kunci = crypto-shredding."]);
+g("csek","CSEK",["CSEK"],"Customer-Supplied Encryption Keys","Security",
+ ["You send your own raw key with each request; Google never stores it. Only Cloud Storage and Compute Engine disks support it.","Bringing your own key each time you open the locker.","Not supported by BigQuery, so that option is wrong."],
+ ["Kamu mengirim kunci mentah sendiri di setiap request; Google tidak menyimpannya. Hanya Cloud Storage dan disk Compute Engine yang mendukung.","Membawa kunci sendiri setiap kali membuka loker.","Tidak didukung BigQuery, jadi opsi itu salah."]);
+g("ekm","EKM",["EKM","Cloud EKM"],"External Key Manager","Security",
+ ["Encryption keys stay in a key manager outside Google Cloud.","The key never enters the building; a guard brings it each time.","\"Keys must never be stored in Google\" → EKM."],
+ ["Kunci enkripsi tetap disimpan di key manager di luar Google Cloud.","Kuncinya tidak pernah masuk gedung; satpam membawanya setiap kali dibutuhkan.","\"Kunci tidak boleh disimpan di Google\" → EKM."]);
+g("hsm","HSM",["HSM","Cloud HSM"],"Hardware Security Module","Security",
+ ["Tamper-resistant hardware that stores keys (FIPS 140-2 Level 3 in Cloud HSM).","A bank vault for keys.","\"Hardware-backed keys\" → Cloud HSM."],
+ ["Hardware tahan bobol untuk menyimpan kunci (FIPS 140-2 Level 3 di Cloud HSM).","Brankas bank khusus untuk kunci.","\"Kunci berbasis hardware\" → Cloud HSM."]);
+g("fips","FIPS 140-2",["FIPS","FIPS 140-2"],"Federal Information Processing Standard","Security",
+ ["A US security certification level for cryptographic hardware/software.","A safety rating stamp on a vault.","Shows up with Cloud HSM."],
+ ["Standar sertifikasi keamanan AS untuk hardware/software kriptografi.","Stempel rating keamanan di brankas.","Muncul bersama Cloud HSM."]);
+g("cryptoshred","Crypto-shredding",["crypto-shredding","crypto shredding"],"","Security",
+ ["Making data permanently unreadable by destroying the encryption key.","Burning the only key to a locked box.","Per-tenant CMEK, destroy the key when the tenant leaves."],
+ ["Membuat data tidak bisa dibaca selamanya dengan menghancurkan kunci enkripsinya.","Membakar satu-satunya kunci kotak terkunci.","CMEK per tenant, hancurkan kuncinya saat tenant pergi."]);
+g("clientside","Client-side encryption",["client-side encryption","client-side"],"","Security",
+ ["Encrypting data yourself before uploading, so Google only ever stores ciphertext.","Writing your diary in a secret code before giving it to anyone.","\"Google must never see plaintext\"; BigQuery can't query it."],
+ ["Mengenkripsi data sendiri sebelum upload, sehingga Google hanya menyimpan data terenkripsi.","Menulis buku harian dengan sandi rahasia sebelum menitipkannya.","\"Google tidak boleh melihat plaintext\"; BigQuery tidak bisa meng-query-nya."]);
+g("dlp","DLP / Sensitive Data Protection",["DLP","Sensitive Data Protection","Cloud DLP"],"Data Loss Prevention","Security",
+ ["Google's service that finds sensitive data (cards, IDs, emails) and de-identifies it (masking, tokenization, bucketing).","A censor with a black marker and a code book.","Find/mask PII before it lands in BigQuery."],
+ ["Layanan Google yang menemukan data sensitif (kartu, KTP, email) lalu menyamarkannya (masking, tokenization, bucketing).","Sensor dengan spidol hitam dan buku kode.","Temukan/samarkan PII sebelum masuk BigQuery."]);
+g("pii","PII",["PII"],"Personally Identifiable Information","Security",
+ ["Data that can identify a person: name, NIK, phone, email, address, card number.","Anything that lets someone point to you in a crowd.","PII questions → DLP, policy tags, masking, VPC-SC."],
+ ["Data yang bisa mengidentifikasi seseorang: nama, NIK, nomor HP, email, alamat, nomor kartu.","Apa pun yang membuat orang bisa menunjukmu di tengah keramaian.","Soal PII → DLP, policy tag, masking, VPC-SC."]);
+g("infotype","infoType",["infoType","infoTypes"],"","Security",
+ ["A category of sensitive data DLP can detect (CREDIT_CARD_NUMBER, EMAIL_ADDRESS, custom regex…).","A label on the censor's checklist.","DLP inspection scans for infoTypes."],
+ ["Kategori data sensitif yang bisa dideteksi DLP (CREDIT_CARD_NUMBER, EMAIL_ADDRESS, regex custom…).","Label di checklist milik sensor.","Inspeksi DLP men-scan infoType."]);
+g("deid","De-identification",["de-identification","de-identify","de-identified","pseudonymization","pseudonymize","anonymize"],"","Security",
+ ["Transforming sensitive values so people can't be identified: masking, redaction, tokenization, hashing, bucketing, date shifting.","Blurring faces in a photo.","Pick the technique by what must still work (joins? reversibility?)."],
+ ["Mengubah nilai sensitif supaya orang tidak bisa diidentifikasi: masking, redaction, tokenization, hashing, bucketing, date shifting.","Mem-blur wajah di foto.","Pilih teknik sesuai apa yang harus tetap bisa (join? bisa dibalik?)."]);
+g("masking","Masking / redaction",["masking","masked","redaction","redact","redacted","dynamic data masking"],"","Security",
+ ["Hiding all or part of a value (****1234). Redaction removes it. Irreversible. Dynamic data masking does it at query time per user in BigQuery.","Covering most of a card number with your thumb.","Display-only hiding → masking; per-user in BigQuery → dynamic data masking."],
+ ["Menyembunyikan sebagian atau seluruh nilai (****1234). Redaction menghapusnya. Tidak bisa dibalik. Dynamic data masking melakukannya saat query, per user, di BigQuery.","Menutup sebagian besar nomor kartu dengan jempol.","Sekadar menyembunyikan tampilan → masking; per user di BigQuery → dynamic data masking."]);
+g("tokenization","Tokenization / FPE",["tokenization","tokenize","tokenized","deterministic encryption","FPE","format-preserving encryption"],"Format-Preserving Encryption","Security",
+ ["Replacing a value with a consistent token using a key: the same input always gives the same token, so joins still work, and key holders can reverse it. FPE keeps the original format.","A secret nickname that's always the same for the same person.","\"Join on PII without exposing it, reversible\" → deterministic tokenization / FPE."],
+ ["Mengganti nilai dengan token yang konsisten memakai kunci: input yang sama selalu jadi token yang sama, jadi join tetap jalan, dan pemegang kunci bisa membaliknya. FPE mempertahankan format aslinya.","Nama samaran rahasia yang selalu sama untuk orang yang sama.","\"Join pakai PII tanpa membukanya, bisa dibalik\" → deterministic tokenization / FPE."]);
+g("hashing","Hashing",["hashing","hash","hashed","SHA-256"],"","Security",
+ ["A one-way function that turns a value into a fixed fingerprint. Consistent (joinable) but not reversible.","A fingerprint: identifies, but you can't rebuild the person from it.","Joinable but irreversible; also used for hash buckets and salting."],
+ ["Fungsi satu arah yang mengubah nilai jadi sidik jari tetap. Konsisten (bisa join) tapi tidak bisa dibalik.","Sidik jari: bisa mengenali, tapi tidak bisa membuat ulang orangnya.","Bisa join tapi tidak bisa dibalik; juga dipakai untuk hash bucket dan salting."]);
+g("bucketing","Bucketing / date shifting",["bucketing","bucketize","bucketized","date shifting","generalization"],"","Security",
+ ["Generalizing values into ranges (34 → 30–39) or shifting dates by a consistent offset to hide exact values but keep patterns.","Saying \"thirty-something\" instead of your exact age.","Keep trends/intervals but hide exact values."],
+ ["Menggeneralisasi nilai ke rentang (34 → 30–39) atau menggeser tanggal dengan offset tetap untuk menyembunyikan nilai pasti tapi mempertahankan pola.","Bilang \"umur tiga puluhan\" daripada umur persis.","Pertahankan tren/interval tapi sembunyikan nilai pasti."]);
+g("kanon","k-anonymity",["k-anonymity","l-diversity","re-identification"],"","Security",
+ ["A risk measure: each person in a dataset is indistinguishable from at least k−1 others on identifying columns.","Hiding in a crowd of at least k people who look the same.","Measure re-identification risk → DLP risk analysis."],
+ ["Ukuran risiko: setiap orang di dataset tidak bisa dibedakan dari minimal k−1 orang lain berdasarkan kolom identitas.","Bersembunyi di kerumunan minimal k orang yang mirip.","Ukur risiko identifikasi ulang → DLP risk analysis."]);
+g("vpc","VPC",["VPC","Shared VPC","subnet","subnets"],"Virtual Private Cloud","Network",
+ ["Your private network inside Google Cloud with subnets, firewall rules and routes.","A gated housing complex with its own internal roads.","Private IP Dataflow workers run in your VPC subnets."],
+ ["Jaringan privatmu di dalam Google Cloud, lengkap dengan subnet, firewall rule dan route.","Kompleks perumahan berpagar dengan jalan internal sendiri.","Worker Dataflow ber-IP privat berjalan di subnet VPC-mu."]);
+g("vpcsc","VPC Service Controls",["VPC-SC","VPC Service Controls","service perimeter","perimeter"],"","Security",
+ ["A security perimeter around projects that blocks data from leaving through Google APIs, even with valid credentials.","A guard at the building exit checking bags, even for staff with valid keycards.","\"Prevent exfiltration / stolen credentials\" → VPC-SC."],
+ ["Perimeter keamanan di sekitar project yang mencegah data keluar lewat API Google, bahkan dengan kredensial yang valid.","Satpam di pintu keluar yang memeriksa tas, bahkan untuk staf yang punya kartu akses.","\"Cegah exfiltration / kredensial dicuri\" → VPC-SC."]);
+g("exfil","Exfiltration",["exfiltration","exfiltrate"],"","Security",
+ ["Data being copied out of the organisation without permission.","Smuggling files out of the office.","Answer: VPC Service Controls."],
+ ["Data disalin keluar dari organisasi tanpa izin.","Menyelundupkan dokumen keluar kantor.","Jawabannya: VPC Service Controls."]);
+g("pga","Private Google Access / PSC",["Private Google Access","Private Service Connect","PSC"],"","Network",
+ ["Lets VMs without public IPs reach Google APIs (Private Google Access); Private Service Connect gives private endpoints to services.","A staff-only corridor to the canteen.","\"No public IPs but must read GCS/BigQuery\"."],
+ ["Memungkinkan VM tanpa public IP menjangkau API Google (Private Google Access); Private Service Connect menyediakan endpoint privat ke layanan.","Lorong khusus staf menuju kantin.","\"Tanpa public IP tapi harus baca GCS/BigQuery\"."]);
+g("ip","IP address (public / private)",["IP","IPs","public IP","public IPs","private IP","private IPs","--no_use_public_ips"],"Internet Protocol","Network",
+ ["A machine's network address. Public IPs are reachable from the internet; private IPs only inside your network.","A street address vs an internal room number.","Security policy: no public IPs on data VMs."],
+ ["Alamat jaringan sebuah mesin. Public IP bisa dijangkau dari internet; private IP hanya di dalam jaringanmu.","Alamat jalan vs nomor ruangan internal.","Kebijakan keamanan: tidak ada public IP di VM data."]);
+g("vpn","Cloud VPN / Interconnect",["VPN","Cloud VPN","HA VPN","Interconnect","Dedicated Interconnect","Partner Interconnect"],"","Network",
+ ["Ways to connect your data center to Google. VPN = encrypted tunnel over the internet (quick, moderate bandwidth). Interconnect = private physical link (10/100 Gbps).","VPN = an armoured car on public roads; Interconnect = your own private highway.","Private high throughput → Interconnect; quick + moderate → VPN."],
+ ["Cara menghubungkan data center ke Google. VPN = terowongan terenkripsi lewat internet (cepat dipasang, bandwidth sedang). Interconnect = link fisik privat (10/100 Gbps).","VPN = mobil lapis baja di jalan umum; Interconnect = jalan tol pribadi.","Privat + throughput tinggi → Interconnect; cepat + sedang → VPN."]);
+g("auditlog","Audit logs",["audit logs","Audit Logs","Data Access","Admin Activity","Data Access logs"],"","Security",
+ ["Records of who did what and when. Admin Activity (config changes, always on), Data Access (who read data; on by default for BigQuery).","The building's visitor book and CCTV.","\"Who read the salary table?\" → Data Access logs + log sink."],
+ ["Catatan siapa melakukan apa dan kapan. Admin Activity (perubahan konfigurasi, selalu aktif), Data Access (siapa membaca data; aktif default untuk BigQuery).","Buku tamu gedung dan CCTV.","\"Siapa membaca tabel gaji?\" → Data Access log + log sink."]);
+g("authview","Authorized view",["authorized view","authorized views","authorized dataset","authorized datasets"],"","Security",
+ ["A view in a separate dataset that is allowed to read the source tables, so users can query the view without access to the sources.","A receptionist who can fetch summaries from the archive for you.","Share results, not source tables."],
+ ["View di dataset terpisah yang diizinkan membaca tabel sumber, sehingga user bisa meng-query view tanpa akses ke sumbernya.","Resepsionis yang bisa mengambilkan ringkasan dari arsip untukmu.","Bagikan hasil, bukan tabel sumbernya."]);
+g("rls","Row-level security",["row-level access policy","row-level access policies","row access policy","row-level security","row-level policy","row-level policies"],"","Security",
+ ["BigQuery policies that filter which rows each user or group can see in a table.","Each branch manager only seeing their branch's pages of the ledger.","Different rows per user → row access policy."],
+ ["Policy BigQuery yang memfilter baris mana yang boleh dilihat setiap user atau group di sebuah tabel.","Setiap manajer cabang hanya melihat halaman buku besar milik cabangnya.","Baris berbeda per user → row access policy."]);
+g("policytag","Policy tags (column-level security)",["policy tag","policy tags","column-level security","Fine-Grained Reader"],"","Security",
+ ["Labels on sensitive columns (from a taxonomy) that restrict who can read them; Fine-Grained Reader grants access.","A 'confidential' stamp on certain columns of a report.","Hide a column for most users → policy tags."],
+ ["Label di kolom sensitif (dari sebuah taxonomy) yang membatasi siapa yang boleh membacanya; Fine-Grained Reader memberi akses.","Cap 'rahasia' di kolom tertentu pada laporan.","Sembunyikan kolom dari sebagian besar user → policy tag."]);
+g("dataplex","Dataplex",["Dataplex","Dataplex Universal Catalog","Data Catalog"],"","Governance",
+ ["Google's data governance layer: organise lakes/zones/assets, catalog, profile, check quality and trace lineage across GCS and BigQuery without moving data.","A librarian plus a health inspector for all your data.","Discovery, central policies, quality, lineage, data mesh."],
+ ["Lapisan data governance Google: mengatur lake/zone/asset, katalog, profiling, cek kualitas dan lineage di GCS dan BigQuery tanpa memindahkan data.","Pustakawan sekaligus inspektur kesehatan untuk semua datamu.","Discovery, policy pusat, kualitas, lineage, data mesh."]);
+g("lineage","Data lineage",["lineage","data lineage"],"","Governance",
+ ["A record of where data came from and which jobs transformed it.","A family tree for a table.","Traced by Dataplex across BigQuery, Dataflow, Composer, Dataproc."],
+ ["Catatan dari mana data berasal dan job apa saja yang mengubahnya.","Silsilah keluarga untuk sebuah tabel.","Dilacak oleh Dataplex lintas BigQuery, Dataflow, Composer, Dataproc."]);
+g("catalog","Data catalog / metadata",["catalog","metadata","data catalog"],"","Governance",
+ ["A searchable inventory describing data assets (owner, schema, meaning). Metadata = data about data.","A library catalogue card.","Dataplex Universal Catalog (formerly Data Catalog)."],
+ ["Daftar yang bisa dicari berisi deskripsi aset data (pemilik, schema, arti). Metadata = data tentang data.","Kartu katalog perpustakaan.","Dataplex Universal Catalog (dulu Data Catalog)."]);
+g("datamesh","Data mesh / federated governance",["data mesh","federated governance","data product","data products"],"","Governance",
+ ["Each business domain owns and publishes its data as products, while central rules (security, catalog, quality) still apply.","Each restaurant in a food court runs its own kitchen but follows the mall's hygiene rules.","Dataplex + BigQuery + Analytics Hub."],
+ ["Setiap domain bisnis memiliki dan menerbitkan datanya sebagai produk, sementara aturan pusat (security, katalog, kualitas) tetap berlaku.","Setiap gerai di food court mengelola dapurnya sendiri tapi ikut aturan kebersihan mal.","Dataplex + BigQuery + Analytics Hub."]);
+g("dq","Data quality / profiling",["data quality","data profiling","profiling","quality scan","quality scans","data quality scans"],"","Governance",
+ ["Checking data against rules (not null, ranges, uniqueness) and computing column statistics.","A health check-up for your tables.","Dataplex data quality scans; Dataform assertions."],
+ ["Mengecek data terhadap aturan (tidak null, rentang, unik) dan menghitung statistik kolom.","Medical check-up untuk tabelmu.","Dataplex data quality scan; Dataform assertion."]);
+g("analyticshub","Analytics Hub / BigQuery sharing",["Analytics Hub","BigQuery sharing","linked dataset","linked datasets"],"","Analytics",
+ ["Publishers list datasets in exchanges; subscribers get a read-only linked dataset with no copying, always fresh, paying for their own queries.","A library that lends access, not photocopies.","Share live data with many partners, no copies."],
+ ["Publisher memasang dataset di exchange; subscriber mendapat linked dataset read-only tanpa copy, selalu terbaru, dan membayar query-nya sendiri.","Perpustakaan yang meminjamkan akses, bukan fotokopi.","Bagikan data live ke banyak partner tanpa copy."]);
+g("cleanroom","Data clean room",["data clean room","data clean rooms","clean room","clean rooms"],"","Analytics",
+ ["A space where two companies analyse combined data under privacy rules (e.g. minimum aggregation) without seeing each other's raw rows.","Two chefs combining ingredients behind a screen and only showing the final dish.","Joint analysis without exposing raw data."],
+ ["Ruang tempat dua perusahaan menganalisis data gabungan dengan aturan privasi (misalnya agregasi minimum) tanpa saling melihat baris mentah.","Dua koki menggabungkan bahan di balik tirai dan hanya menunjukkan hidangan akhirnya.","Analisis bersama tanpa membuka data mentah."]);
+
+/* ---------- BI & ops ---------- */
+g("bi","BI",["BI","business intelligence"],"Business Intelligence","Analytics",
+ ["Dashboards and reports that help people make business decisions from data.","The car's dashboard for the company.","BI Engine, Looker, Looker Studio, materialized views."],
+ ["Dashboard dan laporan yang membantu orang mengambil keputusan bisnis dari data.","Dasbor mobil untuk perusahaan.","BI Engine, Looker, Looker Studio, materialized view."]);
+g("biengine","BI Engine",["BI Engine"],"","Analytics",
+ ["BigQuery's in-memory accelerator that makes dashboard queries sub-second.","Keeping the most-asked answers on a whiteboard next to the desk.","Sub-second dashboards with many users."],
+ ["Akselerator in-memory BigQuery yang membuat query dashboard di bawah satu detik.","Menaruh jawaban yang paling sering ditanya di papan tulis dekat meja.","Dashboard di bawah satu detik untuk banyak user."]);
+g("looker","Looker / Looker Studio",["Looker","Looker Studio","LookML","Data Studio","Connected Sheets"],"","Analytics",
+ ["Looker = enterprise BI with a semantic layer (LookML) so metrics are defined once. Looker Studio (formerly Data Studio) = quick free dashboards. Connected Sheets = Google Sheets on BigQuery.","Looker = the company's official dictionary of numbers; Looker Studio = a quick poster.","Consistent metric definitions → Looker."],
+ ["Looker = BI enterprise dengan semantic layer (LookML) sehingga metrik didefinisikan sekali. Looker Studio (dulu Data Studio) = dashboard cepat dan gratis. Connected Sheets = Google Sheets di atas BigQuery.","Looker = kamus angka resmi perusahaan; Looker Studio = poster cepat.","Definisi metrik yang konsisten → Looker."]);
+g("monitoring","Cloud Monitoring / Logging",["Cloud Monitoring","Cloud Logging","Monitoring","Logging","Stackdriver","alerting policy","alerting policies"],"","Ops & Cost",
+ ["Monitoring = metrics, dashboards and alerts. Logging = all logs, with log-based metrics and sinks. Stackdriver is the old name.","Monitoring = the dashboard gauges; Logging = the black box recorder.","Alert on lag/backlog; log sinks for retention and SQL analysis."],
+ ["Monitoring = metrik, dashboard dan alert. Logging = semua log, dengan log-based metric dan sink. Stackdriver adalah nama lamanya.","Monitoring = jarum di dasbor; Logging = kotak hitam pesawat.","Alert untuk lag/backlog; log sink untuk retensi dan analisis SQL."]);
+g("logsink","Log sink / log-based metric",["log sink","log sinks","log-based metric","log-based metrics","sink","sinks"],"","Ops & Cost",
+ ["A sink routes logs to BigQuery, GCS or Pub/Sub. A log-based metric turns matching log lines into a metric you can alert on.","A sink = a pipe sending logs to storage; log-based metric = a counter of certain entries.","Keep logs for years / alert on an error message."],
+ ["Sink mengalirkan log ke BigQuery, GCS atau Pub/Sub. Log-based metric mengubah baris log tertentu menjadi metrik yang bisa diberi alert.","Sink = pipa yang mengirim log ke penyimpanan; log-based metric = penghitung entri tertentu.","Simpan log bertahun-tahun / alert untuk pesan error."]);
+g("infoschema","INFORMATION_SCHEMA.JOBS",["INFORMATION_SCHEMA","INFORMATION_SCHEMA.JOBS"],"","Ops & Cost",
+ ["BigQuery system views with every job's user, bytes billed, slots and errors.","The till receipts of every query.","\"Who ran the expensive queries?\""],
+ ["View sistem BigQuery berisi setiap job: user, byte yang ditagih, slot dan error.","Struk kasir untuk setiap query.","\"Siapa yang menjalankan query mahal?\""]);
+g("billingexport","Billing export",["billing export","Cloud Billing","budget","budgets"],"","Ops & Cost",
+ ["Exporting detailed cost data to BigQuery for analysis; budgets send alerts at thresholds.","Your bank statement in a spreadsheet, plus spending alerts.","Spend by team/pipeline with labels."],
+ ["Mengekspor data biaya detail ke BigQuery untuk dianalisis; budget mengirim alert saat mencapai batas.","Mutasi rekening dalam spreadsheet, plus notifikasi pengeluaran.","Biaya per tim/pipeline dengan label."]);
+g("priority","Interactive vs batch priority",["batch priority"],"","Ops & Cost",
+ ["BigQuery interactive queries run at once; batch-priority queries wait for idle capacity and don't count toward the concurrency limit.","Express lane vs regular queue.","Non-urgent reports → batch priority."],
+ ["Query interactive BigQuery langsung dijalankan; query batch priority menunggu kapasitas kosong dan tidak dihitung dalam batas konkurensi.","Jalur ekspres vs antrean biasa.","Laporan tidak mendesak → batch priority."]);
+g("workload","Workload isolation",["workload isolation","workloads","workload"],"","Ops & Cost",
+ ["Separating different jobs (ETL, BI, data science) so one can't starve the others of capacity.","Separate lanes for buses and private cars.","BigQuery reservations; Bigtable app profiles."],
+ ["Memisahkan job yang berbeda (ETL, BI, data science) supaya yang satu tidak menghabiskan kapasitas yang lain.","Jalur terpisah untuk bus dan mobil pribadi.","Reservation BigQuery; app profile Bigtable."]);
+g("siem","SIEM",["SIEM"],"Security Information and Event Management","Security",
+ ["A security system that collects logs from everywhere to detect threats.","The security control room watching all cameras.","Stream logs to a SIEM via a Pub/Sub log sink."],
+ ["Sistem keamanan yang mengumpulkan log dari mana saja untuk mendeteksi ancaman.","Ruang kontrol keamanan yang memantau semua kamera.","Alirkan log ke SIEM lewat log sink Pub/Sub."]);
+g("metastore","Metastore / Component Gateway",["Dataproc Metastore","Metastore","Component Gateway"],"","Processing",
+ ["Metastore = shared Hive table catalog that survives ephemeral clusters. Component Gateway = secure web access to YARN/Spark/Jupyter UIs.","A shared address book for all rental cars; a secure window into the engine room.","Ephemeral clusters sharing table definitions."],
+ ["Metastore = katalog tabel Hive bersama yang tetap ada walau cluster ephemeral dihapus. Component Gateway = akses web aman ke UI YARN/Spark/Jupyter.","Buku alamat bersama untuk semua mobil sewaan; jendela aman ke ruang mesin.","Cluster ephemeral yang berbagi definisi tabel."]);
+
+/* ---------- ML & AI ---------- */
+g("ml","ML",["ML","machine learning"],"Machine Learning","ML & AI",
+ ["Teaching a computer to make predictions from examples instead of writing rules by hand.","Learning to recognise durian by smelling hundreds of fruits.","BigQuery ML, Vertex AI, pre-trained APIs."],
+ ["Mengajari komputer membuat prediksi dari contoh, bukan menulis aturan secara manual.","Belajar mengenali durian dengan mencium ratusan buah.","BigQuery ML, Vertex AI, pre-trained API."]);
+g("ai","AI / GenAI",["AI","GenAI","generative AI"],"Artificial Intelligence","ML & AI",
+ ["Software that performs tasks needing human-like intelligence. GenAI creates new text/images (e.g. Gemini).","A very well-read assistant.","RAG, embeddings, Gemini via Vertex AI or BigQuery remote models."],
+ ["Software yang mengerjakan tugas yang butuh kecerdasan mirip manusia. GenAI membuat teks/gambar baru (misalnya Gemini).","Asisten yang sangat banyak membaca.","RAG, embedding, Gemini lewat Vertex AI atau remote model BigQuery."]);
+g("bqml","BigQuery ML",["BigQuery ML","BQML","CREATE MODEL","ML.PREDICT","ML.EVALUATE"],"","ML & AI",
+ ["Training and using ML models with SQL inside BigQuery (CREATE MODEL, ML.EVALUATE, ML.PREDICT).","Cooking with the kitchen you already have instead of building a new one.","SQL analysts + data already in BigQuery."],
+ ["Melatih dan memakai model ML dengan SQL di dalam BigQuery (CREATE MODEL, ML.EVALUATE, ML.PREDICT).","Memasak dengan dapur yang sudah ada, bukan membangun dapur baru.","Analis SQL + data sudah di BigQuery."]);
+g("vertex","Vertex AI",["Vertex AI","AutoML","Vertex AI Pipelines","Workbench","Feature Store","Model Registry"],"","ML & AI",
+ ["Google's ML platform: AutoML (no-code custom models), custom training, pipelines, Feature Store, model registry, endpoints and monitoring. Replaces AI Platform / ML Engine / Datalab.","The full ML factory, from raw materials to shipped product.","Custom models: AutoML (little code) or custom training (full control)."],
+ ["Platform ML Google: AutoML (model custom tanpa coding), custom training, pipeline, Feature Store, model registry, endpoint dan monitoring. Pengganti AI Platform / ML Engine / Datalab.","Pabrik ML lengkap, dari bahan mentah sampai produk dikirim.","Model custom: AutoML (sedikit kode) atau custom training (kontrol penuh)."]);
+g("preapi","Pre-trained APIs",["pre-trained API","pre-trained APIs","Vision API","Natural Language API","Speech-to-Text","Translation API","Document AI","Video Intelligence"],"","ML & AI",
+ ["Ready-made Google models for common tasks (images, text, speech, translation, documents) that need no training.","A ready-to-wear suit instead of a tailor-made one.","No ML team + common task → pre-trained API."],
+ ["Model siap pakai dari Google untuk tugas umum (gambar, teks, suara, terjemahan, dokumen) tanpa perlu training.","Baju jadi, bukan jahitan penjahit.","Tidak ada tim ML + tugas umum → pre-trained API."]);
+g("ocr","OCR",["OCR"],"Optical Character Recognition","ML & AI",
+ ["Reading text from images or scanned documents.","Teaching the computer to read a photo of a receipt.","Receipts, invoices → Document AI / Vision API."],
+ ["Membaca teks dari gambar atau dokumen hasil scan.","Mengajari komputer membaca foto struk.","Struk, invoice → Document AI / Vision API."]);
+g("training","Training / inference",["training","inference","prediction","predictions"],"","ML & AI",
+ ["Training = a model learning patterns from examples. Inference/prediction = using the trained model on new data.","Studying for the exam (training) vs answering on exam day (inference).","Online vs batch prediction."],
+ ["Training = model mempelajari pola dari contoh. Inference/prediction = memakai model yang sudah dilatih untuk data baru.","Belajar untuk ujian (training) vs menjawab di hari ujian (inference).","Online vs batch prediction."]);
+g("onlinebatch","Online vs batch prediction",["online prediction","batch prediction","endpoint","endpoints"],"","ML & AI",
+ ["Online = one request at a time with low latency through an endpoint. Batch = scoring a big dataset asynchronously, output to files/tables.","A barista making one coffee now vs a factory roasting tonnes overnight.","100 ms per payment → online; 200M rows nightly → batch."],
+ ["Online = satu request per kali dengan latency rendah lewat endpoint. Batch = menilai dataset besar secara asinkron, hasilnya ke file/tabel.","Barista membuat satu kopi sekarang vs pabrik menyangrai berton-ton semalaman.","100 ms per pembayaran → online; 200 juta baris per malam → batch."]);
+g("feature","Feature / label",["feature engineering","features","feature","label","labelled"],"","ML & AI",
+ ["Features are the input columns a model learns from; the label is the answer it should predict.","Clues (features) and the solution (label) in practice questions.","Feature engineering: one-hot, embeddings, bucketing, crosses, normalization."],
+ ["Feature adalah kolom input yang dipelajari model; label adalah jawaban yang harus diprediksi.","Petunjuk (feature) dan kunci jawaban (label) di soal latihan.","Feature engineering: one-hot, embedding, bucketing, cross, normalisasi."]);
+g("onehot","One-hot / feature cross",["one-hot","feature cross","feature crosses","hash buckets"],"","ML & AI",
+ ["One-hot turns a category into 0/1 columns; a feature cross combines features (lat × long); hash buckets map many categories into a fixed number of buckets.","Tick boxes for each option; combining 'city' and 'time' into one clue.","High cardinality → embeddings or hash buckets instead of one-hot."],
+ ["One-hot mengubah kategori menjadi kolom 0/1; feature cross menggabungkan fitur (lat × long); hash bucket memetakan banyak kategori ke jumlah ember tetap.","Kotak centang untuk setiap pilihan; menggabungkan 'kota' dan 'jam' jadi satu petunjuk.","Cardinality tinggi → embedding atau hash bucket, bukan one-hot."]);
+g("embedding","Embedding",["embedding","embeddings","ML.GENERATE_EMBEDDING"],"","ML & AI",
+ ["A list of numbers (vector) representing meaning, so similar things end up close together.","Coordinates on a 'meaning map': 'cheap flight' sits next to 'budget airfare'.","High-cardinality features; semantic search; RAG."],
+ ["Deretan angka (vector) yang mewakili makna, sehingga hal yang mirip letaknya berdekatan.","Koordinat di 'peta makna': 'tiket murah' berdekatan dengan 'tiket hemat'.","Fitur dengan cardinality tinggi; pencarian semantik; RAG."]);
+g("vector","Vector search / vector index",["vector search","Vector Search","vector index","VECTOR_SEARCH","vector","vectors"],"","ML & AI",
+ ["Finding the stored embeddings closest to a query embedding, sped up by a vector index.","Finding the nearest houses on a map.","BigQuery VECTOR_SEARCH, AlloyDB, Vertex AI Vector Search."],
+ ["Mencari embedding tersimpan yang paling dekat dengan embedding query, dipercepat dengan vector index.","Mencari rumah terdekat di peta.","BigQuery VECTOR_SEARCH, AlloyDB, Vertex AI Vector Search."]);
+g("rag","RAG",["RAG","retrieval-augmented generation"],"Retrieval-Augmented Generation","ML & AI",
+ ["Answering questions by first retrieving relevant chunks of your own documents, then giving them to an LLM to write the answer.","An open-book exam: look up the right page, then write the answer.","Chatbot grounded in company documents."],
+ ["Menjawab pertanyaan dengan mengambil potongan dokumen sendiri yang relevan dulu, lalu memberikannya ke LLM untuk menulis jawaban.","Ujian open-book: cari halaman yang tepat, lalu tulis jawabannya.","Chatbot yang jawabannya berdasarkan dokumen perusahaan."]);
+g("llm","LLM / Gemini",["LLM","LLMs","Gemini"],"Large Language Model","ML & AI",
+ ["A very large model trained on text that can understand and generate language. Gemini is Google's.","An extremely well-read writer.","Used in RAG and via BigQuery remote models (ML.GENERATE_TEXT)."],
+ ["Model sangat besar yang dilatih dengan teks dan bisa memahami serta menghasilkan bahasa. Gemini adalah milik Google.","Penulis yang sangat banyak membaca.","Dipakai di RAG dan lewat remote model BigQuery (ML.GENERATE_TEXT)."]);
+g("chunk","Chunking",["chunking","chunk","chunks"],"","ML & AI",
+ ["Splitting long documents into smaller passages before embedding them.","Cutting a book into index cards.","Chunk size/overlap affects RAG quality."],
+ ["Memecah dokumen panjang jadi potongan kecil sebelum dibuat embedding-nya.","Memotong buku jadi kartu-kartu catatan.","Ukuran/overlap chunk memengaruhi kualitas RAG."]);
+g("overfit","Overfitting / underfitting",["overfitting","overfit","overfits","underfitting","underfit"],"","ML & AI",
+ ["Overfitting: great on training data, bad on new data (memorised). Underfitting: bad on both (too simple).","Overfitting = memorising last year's exam answers; underfitting = not studying at all.","Overfit → regularization, dropout, more data, early stopping."],
+ ["Overfitting: bagus di data training, jelek di data baru (menghafal). Underfitting: jelek di keduanya (terlalu sederhana).","Overfitting = menghafal jawaban ujian tahun lalu; underfitting = tidak belajar sama sekali.","Overfit → regularization, dropout, tambah data, early stopping."]);
+g("regularization","Regularization (L1/L2) / dropout",["regularization","L1","L2","L1/L2","dropout","early stopping"],"","ML & AI",
+ ["Techniques that stop a model from memorising: L1 pushes useless weights to zero (feature selection), L2 shrinks weights, dropout randomly turns off neurons, early stopping halts training at the right time.","Making a student explain in their own words instead of memorising.","Fixes for overfitting; L1 for sparse feature selection."],
+ ["Teknik yang mencegah model menghafal: L1 membuat bobot tidak berguna jadi nol (seleksi fitur), L2 mengecilkan bobot, dropout mematikan neuron secara acak, early stopping menghentikan training di waktu yang pas.","Meminta murid menjelaskan dengan kata-katanya sendiri, bukan menghafal.","Solusi overfitting; L1 untuk seleksi fitur yang sparse."]);
+g("precisionrecall","Precision / recall / F1",["precision","recall","F1"],"","ML & AI",
+ ["Precision = of the items flagged, how many were right. Recall = of the real positives, how many were caught. F1 balances both.","Precision: are your arrests the right people? Recall: did you catch all the thieves?","Can't miss positives (fraud, disease) → optimise recall."],
+ ["Precision = dari yang ditandai, berapa yang benar. Recall = dari semua yang benar-benar positif, berapa yang tertangkap. F1 menyeimbangkan keduanya.","Precision: apakah yang ditangkap memang pencuri? Recall: apakah semua pencuri tertangkap?","Tidak boleh ada yang terlewat (fraud, penyakit) → optimalkan recall."]);
+g("auc","AUC / RMSE",["AUC","AUC-ROC","PR-AUC","RMSE","MAE","RMSE/MAE","accuracy"],"","ML & AI",
+ ["AUC measures how well a classifier ranks positives above negatives; PR-AUC suits imbalanced data. RMSE/MAE measure regression error. Accuracy = share correct (misleading when classes are imbalanced).","Grades for how well the model sorts and guesses.","1% fraud data → don't trust accuracy; use precision/recall/PR-AUC."],
+ ["AUC mengukur seberapa baik classifier menempatkan positif di atas negatif; PR-AUC cocok untuk data tidak seimbang. RMSE/MAE mengukur error regresi. Accuracy = persentase benar (menyesatkan kalau kelasnya tidak seimbang).","Nilai rapor seberapa baik model mengurutkan dan menebak.","Data fraud 1% → jangan percaya accuracy; pakai precision/recall/PR-AUC."]);
+g("imbalance","Class imbalance",["imbalanced","class imbalance","downsample","downsampling","upweight","upweighting"],"","ML & AI",
+ ["When one class is rare (e.g. 1% fraud). Fix with downsampling the majority or upweighting the minority, and better metrics.","Looking for a few counterfeit notes in a huge stack.","Accuracy looks high but the model is useless."],
+ ["Saat satu kelas sangat jarang (misalnya fraud 1%). Atasi dengan downsampling mayoritas atau upweighting minoritas, dan metrik yang lebih tepat.","Mencari beberapa uang palsu di tumpukan uang yang besar.","Accuracy terlihat tinggi tapi modelnya tidak berguna."]);
+g("skewml","Training-serving skew / drift",["training-serving skew","drift","data drift","prediction drift","Model Monitoring"],"","ML & AI",
+ ["Skew: data is prepared differently in training and in production. Drift: real-world data changes over time.","Practising with metric units but the exam uses imperial.","Fix with shared preprocessing (TRANSFORM, Feature Store) and Model Monitoring."],
+ ["Skew: data disiapkan berbeda saat training dan di production. Drift: data di dunia nyata berubah seiring waktu.","Latihan pakai satuan metrik tapi ujiannya pakai satuan imperial.","Atasi dengan preprocessing yang sama (TRANSFORM, Feature Store) dan Model Monitoring."]);
+g("leakage","Data leakage",["data leakage","leakage","leaking"],"","ML & AI",
+ ["A feature that secretly contains the answer, making results look too good.","Seeing the answer key during the exam.","\"Suspiciously perfect accuracy\"."],
+ ["Fitur yang diam-diam berisi jawabannya, sehingga hasilnya terlihat terlalu bagus.","Melihat kunci jawaban saat ujian.","\"Akurasi sempurna yang mencurigakan\"."]);
+g("modeltypes","Regression / classification / clustering",["regression","classification","clustering model","kmeans","k-means","matrix_factorization","arima_plus","logistic_reg","linear_reg"],"","ML & AI",
+ ["Regression predicts a number, classification predicts a category, clustering finds groups without labels; matrix factorization recommends; ARIMA_PLUS forecasts time series.","Guess the price, guess the type, group the similar ones.","Map the business question to the BigQuery ML model_type."],
+ ["Regresi memprediksi angka, klasifikasi memprediksi kategori, clustering mencari kelompok tanpa label; matrix factorization untuk rekomendasi; ARIMA_PLUS untuk forecast time series.","Tebak harga, tebak jenis, kelompokkan yang mirip.","Cocokkan pertanyaan bisnis dengan model_type BigQuery ML."]);
+g("hyperparam","Hyperparameter / learning rate",["hyperparameter","hyperparameters","learning rate","epoch","epochs"],"","ML & AI",
+ ["Settings chosen before training (learning rate = step size, epochs = passes over the data). Tuning finds good values.","How big your steps are when walking downhill in the fog.","Loss jumps around → learning rate too high."],
+ ["Pengaturan yang dipilih sebelum training (learning rate = besar langkah, epoch = berapa kali melewati data). Tuning mencari nilai yang bagus.","Seberapa besar langkahmu saat menuruni bukit dalam kabut.","Loss naik-turun tidak karuan → learning rate terlalu tinggi."]);
+})();
+(function(){
+const g=(id,term,aliases,full,cat,en,idv)=>PDE.glossary.push({id,term,aliases,full,cat,txt:{en:{def:en[0],analogy:en[1],exam:en[2]},id:{def:idv[0],analogy:idv[1],exam:idv[2]}}});
+g("gps","GPS",["GPS"],"Global Positioning System","General",
+ ["Satellite-based location; devices send latitude/longitude readings.","The blue dot on your maps app.","GPS pings from trucks/drivers are classic time-series streaming data."],
+ ["Penentuan lokasi berbasis satelit; perangkat mengirim data latitude/longitude.","Titik biru di aplikasi peta.","Ping GPS dari truk/driver adalah contoh klasik data streaming time series."]);
+g("sftp","SFTP",["SFTP","FTP"],"SSH File Transfer Protocol","Migration",
+ ["A secure way to transfer files between servers, common for partner data drops.","A locked mail slot for files.","Data Fusion has connectors for SFTP sources."],
+ ["Cara aman memindahkan file antar server, sering dipakai partner untuk mengirim data.","Slot surat terkunci untuk file.","Data Fusion punya connector untuk sumber SFTP."]);
+g("crm","CRM",["CRM","Salesforce"],"Customer Relationship Management","General",
+ ["Software that stores customer contacts and sales interactions (e.g. Salesforce).","The company's address book of every customer conversation.","A typical SaaS source for ingestion (Data Fusion connectors)."],
+ ["Software untuk menyimpan kontak pelanggan dan interaksi penjualan (misalnya Salesforce).","Buku alamat perusahaan berisi semua percakapan dengan pelanggan.","Sumber SaaS yang umum untuk ingestion (connector Data Fusion)."]);
+g("mb","MB / KB",["MB","KB"],"Megabyte / Kilobyte","General",
+ ["Small data sizes: 1 KB ≈ a thousand bytes, 1 MB ≈ a thousand KB.","A KB is a short text message; an MB is a photo.","Tiny files (5 KB) hurt performance; side inputs should be small (MB, not GB)."],
+ ["Ukuran data kecil: 1 KB ≈ seribu byte, 1 MB ≈ seribu KB.","KB itu pesan teks pendek; MB itu satu foto.","File kecil-kecil (5 KB) bikin lambat; side input sebaiknya kecil (MB, bukan GB)."]);
+})();
+
 /* PDE Academy — single-file offline app (bilingual EN/ID). Data in window.PDE. */
 (function(){
 "use strict";
@@ -4788,7 +5607,7 @@ function nav(cur){
   const it=[["home","⌂","Home","Home"],["read","❏","Read","Baca"],["learn","▤","Learn","Belajar"],["practice","✎","Practice","Latihan"],["notebook","✕","Mistakes","Salah"]];
   return `<nav class="bn">${it.map(([h,i,en,id])=>`<a href="#${h}" class="${cur===h?"on":""}"><span class="i">${i}</span>${T(en,id)}</a>`).join("")}</nav>`;
 }
-function render(html,cur){app.innerHTML=`<main>${html}</main>${nav(cur)}`; window.scrollTo(0,0);}
+function render(html,cur){app.innerHTML=`<main>${html}</main>${nav(cur)}`; window.scrollTo(0,0); try{glWrap(app.querySelector("main"));}catch(e){}}
 
 /* ---------- views ---------- */
 function vHome(){
@@ -4812,6 +5631,7 @@ function vHome(){
   ${nextL&&!S.plan?`<div class="sec">${T("Continue","Lanjutkan")}</div>
   <a class="tile" href="#lesson-${nextL.id}"><div class="ic" style="background:${dom(nextL.d).color}">${dom(nextL.d).n}</div><div class="tx"><b>${lz(nextL).title}</b><small class="muted">${dShort(dom(nextL.d))} · ${nextL.mins} ${T("min lesson","menit")}</small></div><span class="chev">›</span></a>`:""}
   <div class="sec">${T("Quick practice","Latihan cepat")}</div>
+  <a class="tile" href="#glossary"><div class="ic" style="background:#7c3aed">Aa</div><div class="tx"><b>${T("Glossary","Kamus istilah")}</b><small class="muted">${T("Look up any term or abbreviation","Cari arti istilah atau singkatan")}</small></div><span class="chev">›</span></a>
   <a class="tile" href="#daily"><div class="ic" style="background:#4f46e5">10</div><div class="tx"><b>Daily 10</b><small class="muted">${T("Mixed questions from all domains","Soal campuran dari semua domain")}</small></div><span class="chev">›</span></a>
   <a class="tile" href="#flash"><div class="ic" style="background:#0f766e">FC</div><div class="tx"><b>Flashcards</b><small class="muted">${due} ${T("due today","jatuh tempo hari ini")}</small></div><span class="chev">›</span></a>
   <a class="tile" href="#notebook"><div class="ic" style="background:#dc2626">${wrongN}</div><div class="tx"><b>Mistakes notebook</b><small class="muted">${T("Questions you got wrong, ready to retry","Soal yang pernah salah, siap diulang")}</small></div><span class="chev">›</span></a>
@@ -4885,7 +5705,7 @@ function vLesson(id){
 /* strike-out: hint + long-press */
 function strikeHint(){return (S.hintN||0)<6?`<p class="muted" style="font-size:13px;margin:-4px 0 4px">💡 ${T("Tip: long-press or tap ✕ to cross out an option","Tip: tekan lama atau ketuk ✕ untuk mencoret pilihan")}</p>`:"";}
 const LP={t:null,fired:false};
-function lpStart(e){const b=e.target.closest&&e.target.closest("[data-lp]");if(!b||b.disabled)return;LP.fired=false;clearTimeout(LP.t);
+function lpStart(e){if(e.target.closest&&e.target.closest(".gl"))return;const b=e.target.closest&&e.target.closest("[data-lp]");if(!b||b.disabled)return;LP.fired=false;clearTimeout(LP.t);
   LP.t=setTimeout(()=>{LP.fired=true;if(navigator.vibrate)try{navigator.vibrate(15);}catch(_){}PDEapp.strike(b.dataset.lp,+b.dataset.i);},450);}
 function lpEnd(){clearTimeout(LP.t);}
 document.addEventListener("touchstart",lpStart,{passive:true});document.addEventListener("mousedown",lpStart);
@@ -5147,6 +5967,7 @@ function vProgress(){
   const tot=Object.keys(S.quiz).length, ok=Object.values(S.quiz).filter(r=>r.last).length;
   render(`${top(T("Progress","Progres"),"home")}
   <div class="card row"><b style="flex:1">${T("Language","Bahasa")}</b>${langToggle(false)}</div>
+  <div class="card row"><div style="flex:1"><b>${T("Underline terms","Garis bawah istilah")}</b><br><small class="muted">${T("Tap an underlined term to see what it means","Ketuk istilah bergaris bawah untuk melihat artinya")}</small></div><button class="btn ${S.glOff?"ghost":""}" style="padding:8px 14px" onclick="PDEapp.glToggle()">${S.glOff?T("Off","Mati"):T("On","Nyala")}</button></div>
   <div class="grid2"><div class="stat"><b>${tot}</b><small class="muted">${T("questions seen","soal dilihat")}</small></div><div class="stat"><b>${tot?Math.round(ok/tot*100):0}%</b><small class="muted">${T("latest accuracy","akurasi terakhir")}</small></div>
   <div class="stat"><b>${Object.keys(S.lessons).length}</b><small class="muted">${T("lessons done","pelajaran selesai")}</small></div><div class="stat"><b>${streak()}🔥</b><small class="muted">${T("day streak","hari beruntun")}</small></div></div>
   <div class="sec">${T("By domain","Per domain")}</div><div class="card">${D.domains.map(d=>{if(!d.ready)return `<div style="margin:8px 0" class="muted">${d.n}. ${dShort(d)}</div>`;const s=domStats(d.id);return `<div style="margin:10px 0"><div class="row"><b style="flex:1;font-size:14px">${d.n}. ${dShort(d)}</b><small>${readiness(d.id)}% ${T("ready","siap")}</small></div><div class="bar"><i style="width:${readiness(d.id)}%;background:${d.color}"></i></div><small class="muted">${s.ldone}/${s.lessons} ${T("lessons","pelajaran")} · ${s.seen}/${s.total} ${T("questions","soal")} · ${s.acc}% ${T("correct","benar")}</small></div>`}).join("")}</div>
@@ -5165,6 +5986,7 @@ function gdone(g){const Gg=G(g);return Gg.sections.filter((_,i)=>S.read[g+"-"+i]
 function vRead(){
   render(`<div class="row"><h1 style="flex:1">${T("Read","Baca")}</h1>${langToggle(false)}</div><p class="muted">${T("Case-based summaries per domain. Tool names stay in English, like on the exam.","Ringkasan materi per domain, berbasis kasus. Nama tool tetap English, seperti di ujian.")}</p>
   ${window.PDE_PDF?`<a class="tile" href="PDE_Field_Guide.pdf" target="_blank" rel="noopener"><div class="ic" style="background:#dc2626">PDF</div><div class="tx"><b>PDE Field Guide (PDF)</b><small class="muted">${T("39 pages, English, with highlights · works offline","39 halaman, English, dengan highlight · bisa dibuka offline")}</small></div><span class="chev">›</span></a>`:`<div class="card" style="font-size:14px"><b>PDF</b><p class="muted" style="margin-bottom:0">${T("The PDF Field Guide is available in the installed app (GitHub Pages version).","PDF Field Guide tersedia di app yang ter-install di HP (versi GitHub Pages).")}</p></div>`}
+  <a class="tile" href="#glossary"><div class="ic" style="background:#7c3aed">Aa</div><div class="tx"><b>${T("Glossary","Kamus istilah")}</b><small class="muted">${T(`${GLS.length} terms & abbreviations, explained simply`,`${GLS.length} istilah & singkatan, dijelaskan sederhana`)}</small></div><span class="chev">›</span></a>
   <div class="sec">${T("Summaries + real cases","Ringkasan + kasus nyata")}</div>
   ${GORDER.map(g=>{const Gg=G(g);if(!Gg)return "";const n=Gg.sections.length,dn=gdone(g);const dm=dom(g);
     return `<a class="tile" href="#guide-${g}"><div class="ic" style="background:${Gg.color}">${dm?dm.n:"★"}</div><div class="tx"><b>${Gg.title}</b><small class="muted">${dn}/${n} ${T("chapters read","bab dibaca")}${dm?` · ~${dm.w}% ${T("of exam","ujian")}`:""}</small><div class="bar"><i style="width:${dn/n*100}%;background:${Gg.color}"></i></div></div><span class="chev">›</span></a>`}).join("")}`,"read");
@@ -5378,12 +6200,94 @@ function vCase(id){
   <p class="muted" style="font-size:13px;text-align:center">${T("You can reopen the case at any time with the 📄 button.","Kamu bisa membuka kasusnya lagi kapan saja lewat tombol 📄.")}</p>`,"practice");
 }
 
+
+/* ---------- glossary & tap-to-explain ---------- */
+const GLS = (D.glossary||[]).slice().sort((a,b)=>a.term.localeCompare(b.term));
+const GLById = {}; GLS.forEach(e=>GLById[e.id]=e);
+const glT = e => ID()?e.txt.id:e.txt.en;
+const isCaps = a => /^[A-Z0-9][A-Z0-9\/\-\.]*$/.test(a) && /[A-Z].*[A-Z]|[A-Z][0-9]/.test(a);
+const GLA = {}; /* lowercased alias -> [{a,e}] */
+GLS.forEach(e=>[...new Set([e.term.replace(/\s*\(.*\)$/,""),...(e.aliases||[])])].forEach(a=>{if(!a||a.length<2)return;(GLA[a.toLowerCase()]=GLA[a.toLowerCase()]||[]).push({a,e});}));
+let GLRE=null;
+(function(){
+  const al=Object.keys(GLA).sort((x,y)=>y.length-x.length).map(a=>a.replace(/[.*+?^${}()|[\]\\\/]/g,"\\$&"));
+  const body=al.join("|");
+  try{GLRE=new RegExp("(?<![A-Za-z0-9_\\-])("+body+")(?![A-Za-z0-9_])","gi");}
+  catch(e){GLRE=new RegExp("\\b("+body+")\\b","gi");}
+})();
+function glMatch(m){const c=GLA[m.toLowerCase()];if(!c)return null;
+  for(const x of c){ if(isCaps(x.a)){ if(x.a===m) return x.e; } else return x.e; } return null;}
+const GLSKIP="code,pre,script,style,textarea,input,svg,.k,.gl,a.btn,.top,.no-gl,.xbtn,.flip,nav";
+function glWrap(root){
+  if(S.glOff||!GLRE||!root) return;
+  const used=new Set(); const nodes=[];
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>{
+    if(!n.nodeValue||n.nodeValue.trim().length<2) return NodeFilter.FILTER_REJECT;
+    const p=n.parentElement; if(!p||p.closest(GLSKIP)) return NodeFilter.FILTER_REJECT;
+    return NodeFilter.FILTER_ACCEPT;}});
+  while(w.nextNode()) nodes.push(w.currentNode);
+  nodes.forEach(n=>{
+    const t=n.nodeValue; GLRE.lastIndex=0; let m, last=0, frag=null;
+    while((m=GLRE.exec(t))){
+      const e=glMatch(m[1]); if(!e||used.has(e.id)) continue;
+      used.add(e.id); frag=frag||document.createDocumentFragment();
+      if(m.index>last) frag.appendChild(document.createTextNode(t.slice(last,m.index)));
+      const s=document.createElement("span"); s.className="gl"; s.dataset.g=e.id; s.textContent=m[1]; frag.appendChild(s);
+      last=m.index+m[1].length;
+    }
+    if(frag){ if(last<t.length) frag.appendChild(document.createTextNode(t.slice(last))); n.parentNode.replaceChild(frag,n); }
+  });
+}
+function glSheet(id){
+  const e=GLById[id]; if(!e) return; const x=glT(e);
+  const m=sheet(`<div class="row"><div style="flex:1"><div class="pill">${e.cat}</div><h2 style="margin:8px 0 2px">${e.term}</h2>${e.full?`<div class="muted" style="font-size:14px">${e.full}</div>`:""}</div><button class="back" id="x" aria-label="Close">✕</button></div>
+   <p style="margin-top:10px">${x.def}</p>
+   <div class="box pic"><div class="l">${T("Analogy","Analogi")}</div>${x.analogy}</div>
+   <div class="box brain"><div class="l">${T("On the exam","Di ujian")}</div>${x.exam}</div>
+   <a class="btn ghost block" href="#term-${e.id}" id="o">${T("Open in Glossary","Buka di Kamus")} ›</a>`);
+  m.querySelector("#x").onclick=()=>m.remove(); m.querySelector("#o").onclick=()=>m.remove();
+  const sh=m.querySelector(".sheet"); sh.style.maxHeight="80vh"; sh.style.overflowY="auto";
+}
+document.addEventListener("click",ev=>{const g=ev.target.closest&&ev.target.closest(".gl"); if(!g) return; ev.preventDefault(); ev.stopPropagation(); glSheet(g.dataset.g);},true);
+const GLCATS=()=>[...new Set(GLS.map(e=>e.cat))].sort();
+function glCard(e,open){const x=glT(e);
+  return `<details class="card gli" data-cat="${e.cat}" data-s="${esc((e.term+" "+(e.aliases||[]).join(" ")+" "+(e.full||"")+" "+e.txt.en.def+" "+e.txt.id.def).toLowerCase())}" ${open?"open":""} style="padding:12px 14px;margin:8px 0">
+   <summary style="cursor:pointer"><b>${e.term}</b>${e.full?` <span class="muted" style="font-size:13px">· ${e.full}</span>`:""}</summary>
+   <p style="margin:8px 0 6px">${x.def}</p>
+   <div class="box pic" style="margin:6px 0"><div class="l">${T("Analogy","Analogi")}</div>${x.analogy}</div>
+   <div class="box brain" style="margin:6px 0"><div class="l">${T("On the exam","Di ujian")}</div>${x.exam}</div>
+   <small class="muted">${e.cat}</small></details>`;}
+let GLCAT="";
+function vGlossary(){
+  let letter="", list="";
+  GLS.forEach(e=>{const L1=e.term[0].toUpperCase(); if(L1!==letter){letter=L1; list+=`<div class="sec gll" data-l="${L1}">${L1}</div>`;} list+=glCard(e,false);});
+  render(`<div class="no-gl">${top(T("Glossary","Kamus istilah"),"read")}
+  <p class="muted">${T(`${GLS.length} terms and abbreviations used in this app, explained simply. Tip: underlined words anywhere in the app can be tapped.`,`${GLS.length} istilah dan singkatan yang dipakai di app ini, dijelaskan dengan bahasa sederhana. Tip: kata bergaris bawah di mana pun di app bisa diketuk.`)}</p>
+  <input id="gq" type="search" placeholder="${T("Search: CDC, partition, watermark…","Cari: CDC, partition, watermark…")}" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;font:15px system-ui;background:var(--card);color:var(--ink)">
+  <div style="display:flex;gap:6px;overflow-x:auto;padding:10px 0 4px">${["",...GLCATS()].map(c=>`<button class="flag glc ${c===GLCAT?"on":""}" data-c="${c}" style="white-space:nowrap">${c||T("All","Semua")}</button>`).join("")}</div>
+  <div id="gcount" class="muted" style="font-size:13px"></div>
+  <div id="glist">${list}</div></div>`,"read");
+  const apply=()=>{const q=($("#gq").value||"").trim().toLowerCase();let n=0;
+    document.querySelectorAll(".gli").forEach(d=>{const ok=(!GLCAT||d.dataset.cat===GLCAT)&&(!q||d.dataset.s.indexOf(q)>-1);d.style.display=ok?"":"none";if(ok)n++;});
+    document.querySelectorAll(".gll").forEach(h=>{let s=h.nextElementSibling,any=false;while(s&&!s.classList.contains("gll")){if(s.style.display!=="none")any=true;s=s.nextElementSibling;}h.style.display=any?"":"none";});
+    $("#gcount").textContent=n+" "+T("terms","istilah");};
+  $("#gq").addEventListener("input",apply);
+  document.querySelectorAll(".glc").forEach(b=>b.onclick=()=>{GLCAT=b.dataset.c;document.querySelectorAll(".glc").forEach(x=>x.classList.toggle("on",x.dataset.c===GLCAT));apply();});
+  apply();
+}
+function vTerm(id){
+  const e=GLById[id]; if(!e) return go("glossary");
+  render(`<div class="no-gl">${top(e.term,"glossary")}${glCard(e,true)}<a class="btn ghost block" href="#glossary">${T("All terms","Semua istilah")}</a></div>`,"read");
+}
+
 /* ---------- router ---------- */
 function go(h){location.hash=h;}
 function route(){
   const h=(location.hash||"#home").slice(1);
   if(h==="home")return vHome();
   if(h==="read")return vRead();
+  if(h==="glossary")return vGlossary();
+  if(h.startsWith("term-"))return vTerm(h.slice(5));
   if(h==="plan")return vPlan();
   if(h==="random")return vRandom();
   if(h==="duels")return vDuels();
@@ -5411,6 +6315,7 @@ window.addEventListener("hashchange",route);
 
 /* ---------- actions ---------- */
 window.PDEapp={
+  glToggle(){S.glOff=!S.glOff;save();route();},
   lang(k){S.lang=k;save();
     const open=document.querySelector(".modal"); if(open){open.remove();}
     if(Q&&location.hash.indexOf("quiz")>-1) vQuiz(); else if(LS&&location.hash.indexOf("lesson-")>-1) vLesson(LS.id); else if(PK&&location.hash.indexOf("tool-")>-1) vPicker(); else route();
